@@ -1,0 +1,9 @@
+{"question": "Espresso harmanı için hedef bitiş sıcaklığı kaç derece?", "expected_path": "kavurma/profiller.md", "expected_phrase": "218"}
+{"question": "Atölye neden koyu kavurma yapmıyor?", "expected_path": "kavurma/profiller.md", "expected_phrase": "menşe aroması"}
+{"question": "Cupping puanı kaçın altında kalan parti satışa çıkmaz?", "expected_path": "kavurma/kalite-kontrol.md", "expected_phrase": "80"}
+{"question": "Aynı gün kargo için sipariş en geç saat kaçta verilmeli?", "expected_path": "operasyon/siparis-ve-kargo.md", "expected_phrase": "14:00"}
+{"question": "Açılmamış bir torba kaç gün içinde iade edilebilir?", "expected_path": "operasyon/siparis-ve-kargo.md", "expected_phrase": "14 gün"}
+{"question": "Yeni çalışan kavurma makinesini ne zaman tek başına kullanabilir?", "expected_path": "ekip/ise-baslama.md", "expected_phrase": "ilk ay"}
+{"question": "Model C kavurma makinesi neden seçilmedi?", "expected_path": "kararlar/kavurma-makinesi-secimi.html", "expected_phrase": "elektrik altyapısı"}
+{"question": "Bir menşe için tek tedarikçinin payı en fazla yüzde kaç olabilir?", "expected_path": "kararlar/tedarikci.html", "expected_phrase": "%70"}
+{"question": "Ada Kahve'nin 2022 yılı cirosu ne kadardı?", "expected_path": null, "expected_phrase": "bulamadım"}

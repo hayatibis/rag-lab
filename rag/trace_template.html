@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG İzleme</title>
+<style>
+:root {
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10); --mid: #f0efec;
+  --accent: #2a78d6; --accent-soft: #cde2fb; --warm: #eb6834;
+  --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a; --c4: #eda100;
+  --c5: #e87ba4; --c6: #008300; --c7: #4a3aa7; --c8: #e34948; --c-other: #898781;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --mid: #383835;
+    --accent: #3987e5; --accent-soft: #184f95; --warm: #d95926;
+    --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500;
+    --c5: #d55181; --c6: #008300; --c7: #9085e9; --c8: #e66767;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --mid: #383835;
+  --accent: #3987e5; --accent-soft: #184f95; --warm: #d95926;
+  --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500;
+  --c5: #d55181; --c6: #008300; --c7: #9085e9; --c8: #e66767;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink);
+  font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
+h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 20px; margin: 0 0 4px; display: flex; gap: 10px; align-items: baseline; }
+h3 { font-size: 15px; margin: 22px 0 6px; }
+.num { font-variant-numeric: tabular-nums; }
+.step-no { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--ink); color: var(--surface); font-size: 14px; flex: none; }
+.dur { margin-left: auto; font-size: 13px; color: var(--ink2); font-weight: 500; }
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px;
+  padding: 20px; margin: 18px 0; }
+.lede { color: var(--ink2); margin: 2px 0 14px; }
+.question { font-size: 20px; font-weight: 600; margin: 14px 0 10px; padding: 14px 18px;
+  border-left: 4px solid var(--accent); background: var(--surface); border-radius: 0 10px 10px 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-size: 12.5px; color: var(--ink2); border: 1px solid var(--ring); border-radius: 999px;
+  padding: 3px 10px; background: var(--surface); }
+.terms { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin: 14px 0 4px; }
+.term { background: var(--page); border-radius: 8px; padding: 10px 12px; font-size: 13.5px; color: var(--ink2); }
+.term b { color: var(--ink); display: block; margin-bottom: 2px; }
+.callout { border-left: 3px solid var(--warm); padding: 8px 12px; background: var(--page);
+  border-radius: 0 8px 8px 0; font-size: 14px; margin: 12px 0; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { fill: var(--muted); font-size: 12px; font-family: inherit; }
+svg .ink { fill: var(--ink); } svg .ink2 { fill: var(--ink2); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink2); margin: 8px 0; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 8px 0 14px; }
+.tile { background: var(--page); border-radius: 10px; padding: 12px 14px; }
+.tile .v { font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.tile .l { font-size: 12.5px; color: var(--ink2); }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+td, th { padding: 7px 6px; border-bottom: 1px solid var(--grid); vertical-align: top; text-align: left; }
+th { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+tr.hit-row { cursor: pointer; } tr.hit-row:hover td, tr.hl td { background: var(--page); }
+tr.runner td { color: var(--muted); }
+tr.cut td { border-bottom: 2px dashed var(--warm); padding: 0; }
+.bar { height: 8px; border-radius: 4px; background: var(--accent); }
+.bar.runner { background: var(--axis); }
+.path { word-break: break-word; }
+.path small { color: var(--muted); }
+details { margin-top: 6px; }
+summary { cursor: pointer; color: var(--accent); font-size: 13.5px; }
+pre { white-space: pre-wrap; word-break: break-word; background: var(--page); padding: 12px;
+  border-radius: 8px; font-size: 12.5px; max-height: 420px; overflow: auto; color: var(--ink2); }
+.answer { font-size: 15.5px; line-height: 1.65; }
+.answer h4 { font-size: 16px; margin: 18px 0 6px; } .answer p { margin: 6px 0; }
+.answer table.md { width: auto; margin: 8px 0; } .answer ul { margin: 6px 0; padding-left: 22px; }
+code { font-size: 0.92em; background: var(--page); padding: 1px 5px; border-radius: 4px; }
+.cite { font: inherit; font-size: 12px; font-weight: 650; border: 0; border-radius: 6px; padding: 0 6px;
+  margin: 0 1px; background: var(--accent-soft); color: var(--ink); cursor: pointer; vertical-align: 1px; }
+.cite:hover, .cite:focus { background: var(--accent); color: #fff; outline: none; }
+.cited-grid { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.cg { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; font-size: 13px;
+  font-weight: 650; border: 2px solid var(--axis); color: var(--muted); }
+.cg.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+#tip { position: fixed; pointer-events: none; z-index: 10; max-width: 360px; background: var(--ink);
+  color: var(--surface); font-size: 12.5px; padding: 7px 10px; border-radius: 8px; opacity: 0;
+  transition: opacity .08s; }
+.pulse { animation: pulse 1s ease-in-out 2; }
+@keyframes pulse { 50% { r: 11; } }
+.theme-btn { float: right; font: inherit; font-size: 12.5px; background: var(--surface); color: var(--ink2);
+  border: 1px solid var(--ring); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
+nav.toc a { font-size: 13px; color: var(--ink2); text-decoration: none; border-bottom: 1px dotted var(--axis); }
+@media (max-width: 640px) { .question { font-size: 17px; } h1 { font-size: 22px; } .card { padding: 14px; } }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<div id="tip"></div>
+<script>
+const T = /*__TRACE__*/null;
+const NS = "http://www.w3.org/2000/svg";
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = (x, d = 3) => x == null ? "—" : Number(x).toFixed(d).replace(".", ",");
+const int = x => x == null ? "—" : Math.round(x).toLocaleString("tr-TR");
+const ms = x => x >= 1000 ? fmt(x / 1000, 1) + " sn" : (x < 1 ? "<1 ms" : int(x) + " ms");
+const folderColor = i => i < 8 ? `var(--c${i + 1})` : "var(--c-other)";
+const FOLDERS = T.corpus.folders.map(f => f.name);
+const fColor = name => folderColor(FOLDERS.indexOf(name));
+const stepMs = name => (T.steps.find(s => s.name === name) || {}).ms;
+
+function svg(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "text") e.textContent = v; else if (k === "style") e.setAttribute("style", v); else e.setAttribute(k, v);
+  }
+  if (parent) parent.appendChild(e);
+  return e;
+}
+const tip = $("#tip");
+function showTip(ev, html) {
+  tip.innerHTML = html; tip.style.opacity = 1;
+  const x = Math.min(ev.clientX + 14, innerWidth - tip.offsetWidth - 8);
+  const y = ev.clientY + 16 + tip.offsetHeight > innerHeight ? ev.clientY - tip.offsetHeight - 10 : ev.clientY + 16;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+const hideTip = () => { tip.style.opacity = 0; };
+function hoverable(node, html) {
+  node.addEventListener("mousemove", ev => showTip(ev, typeof html === "function" ? html() : html));
+  node.addEventListener("mouseleave", hideTip);
+}
+function card(id, no, title, dur, lede) {
+  const c = document.createElement("section");
+  c.className = "card"; c.id = id;
+  c.innerHTML = `<h2>${no ? `<span class="step-no">${no}</span>` : ""}${esc(title)}${dur != null ? `<span class="dur">${ms(dur)}</span>` : ""}</h2>`
+    + (lede ? `<p class="lede">${lede}</p>` : "");
+  $("#app").appendChild(c);
+  return c;
+}
+function terms(parent, list) {
+  const d = document.createElement("div"); d.className = "terms";
+  d.innerHTML = list.map(([t, x]) => `<div class="term"><b>${t}</b>${x}</div>`).join("");
+  parent.appendChild(d);
+}
+function html(parent, s) { parent.insertAdjacentHTML("beforeend", s); }
+
+/* Claude'un cevabı için küçük markdown çizici: başlık, tablo, liste, kalın, [n] atıf */
+function inlineMd(s) {
+  return esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\[(\d+)\]/g, (m, n) => +n >= 1 && +n <= T.k ? `<button class="cite" data-r="${n}">${n}</button>` : m);
+}
+function renderMd(md) {
+  const out = [], lines = md.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (/^\s*\|/.test(l)) {
+      const rows = [];
+      while (i < lines.length && /^\s*\|/.test(lines[i])) rows.push(lines[i++]);
+      i--;
+      const cells = r => r.trim().replace(/^\||\|$/g, "").split("|").map(x => x.trim());
+      const body = rows.filter(r => !/^\s*\|[\s:|-]+\|\s*$/.test(r));
+      out.push(`<table class="md">${body.map((r, n) => `<tr>${cells(r).map(x => n ? `<td>${inlineMd(x)}</td>` : `<th>${inlineMd(x)}</th>`).join("")}</tr>`).join("")}</table>`);
+    } else if (/^#{1,4}\s/.test(l)) {
+      out.push(`<h4>${inlineMd(l.replace(/^#+\s*/, ""))}</h4>`);
+    } else if (/^\s*[-*]\s/.test(l)) {
+      const items = [];
+      while (i < lines.length && /^\s*[-*]\s/.test(lines[i])) items.push(lines[i++].replace(/^\s*[-*]\s/, ""));
+      i--;
+      out.push(`<ul>${items.map(x => `<li>${inlineMd(x)}</li>`).join("")}</ul>`);
+    } else if (l.trim()) {
+      out.push(`<p>${inlineMd(l)}</p>`);
+    }
+  }
+  return out.join("");
+}
+
+/* ---------- Üst bilgi ---------- */
+const hits = T.search.hits, runners = T.search.runners_up;
+const total = T.steps.reduce((a, s) => a + s.ms, 0);
+html($("#app"), `
+  <button class="theme-btn" id="themeBtn">tema</button>
+  <h1>Bir sorunun RAG yolculuğu</h1>
+  <div class="question">“${esc(T.question)}”</div>
+  <div class="chips">
+    <span class="chip num">toplam ${ms(total)}</span>
+    <span class="chip">k = ${T.k} parça</span>
+    <span class="chip">embedding: ${esc(T.corpus.embed_model)} (yerel)</span>
+    ${T.generate ? `<span class="chip">LLM: ${esc(T.generate.model)}</span>` : `<span class="chip">yalnız arama (--retrieve-only)</span>`}
+    <span class="chip">${esc(T.created.replace("T", " "))}</span>
+  </div>
+  <nav class="toc"><a href="#big">Büyük resim</a><a href="#time">Süreler</a><a href="#s1">① Embed</a>
+    <a href="#s2">② Arama</a><a href="#s3">③ Prompt</a><a href="#s4">④ Claude</a><a href="#gloss">Sözlük</a></nav>`);
+$("#themeBtn").onclick = () => {
+  const r = document.documentElement, dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const cur = r.dataset.theme || (dark ? "dark" : "light");
+  r.dataset.theme = cur === "dark" ? "light" : "dark";
+};
+
+/* ---------- Büyük resim ---------- */
+{
+  const c = card("big", null, "Büyük resim: iki ayrı zaman", null,
+    "RAG iki aşamadan oluşur. <b>İndeksleme</b> önceden, bir kez yapılır: dokümanlar parçalanır ve her parça sayılara çevrilip saklanır. " +
+    "<b>Sorgu</b> her soruda yeniden yapılır: soru aynı sayı uzayına çevrilir, en yakın parçalar bulunur ve Claude yalnızca onları okuyarak cevap yazar. Kutulara tıklayınca ilgili bölüme gidersin.");
+  const s = svg("svg", { viewBox: "0 0 1000 300", role: "img", "aria-label": "RAG boru hattı diyagramı" }, c);
+  const box = (x, y, w, h, title, sub, target, strong) => {
+    const g = svg("g", { style: target ? "cursor:pointer" : "" }, s);
+    svg("rect", { x, y, width: w, height: h, rx: 10, style: `fill:${strong ? "var(--accent-soft)" : "var(--page)"};stroke:var(--axis)` }, g);
+    svg("text", { x: x + w / 2, y: y + h / 2 - 4, "text-anchor": "middle", class: "ink", style: "font-size:13.5px;font-weight:600", text: title }, g);
+    svg("text", { x: x + w / 2, y: y + h / 2 + 15, "text-anchor": "middle", class: "ink2", style: "font-size:12px", text: sub }, g);
+    if (target) g.addEventListener("click", () => document.getElementById(target).scrollIntoView({ behavior: "smooth" }));
+    return g;
+  };
+  const arrow = (x1, y1, x2, y2) => {
+    svg("line", { x1, y1, x2: x2 - 6, y2, style: "stroke:var(--axis);stroke-width:2" }, s);
+    svg("path", { d: `M${x2},${y2} l-8,-5 v10 z`, style: "fill:var(--axis)" }, s);
+  };
+  svg("text", { x: 0, y: 18, class: "ink", style: "font-size:13px;font-weight:650", text: "İNDEKSLEME · önceden, bir kez (index.py)" }, s);
+  const n = T.corpus;
+  box(0, 30, 180, 64, `${int(n.n_docs)} doküman`, "md · html · pdf · docx");
+  arrow(180, 62, 250, 62);
+  box(250, 30, 200, 64, `${int(n.n_chunks)} parça`, "başlığa göre bölündü, ~600 token");
+  arrow(450, 62, 520, 62);
+  box(520, 30, 220, 64, `${int(n.n_chunks)} × ${n.dim} matris`, "her parça = 1024 sayı");
+  arrow(740, 62, 810, 62);
+  box(810, 30, 190, 64, "data/index.npz", "diskte duruyor");
+
+  svg("text", { x: 0, y: 150, class: "ink", style: "font-size:13px;font-weight:650", text: "SORGU · şimdi, bu soru için (ask.py)" }, s);
+  box(0, 162, 150, 64, "soru", `“${T.question.slice(0, 18)}${T.question.length > 18 ? "…" : ""}”`);
+  arrow(150, 194, 185, 194);
+  box(185, 162, 150, 64, "① embed", `1 × ${n.dim} vektör`, "s1", true);
+  arrow(335, 194, 370, 194);
+  box(370, 162, 170, 64, "② arama", `${int(n.n_chunks)} skor → en iyi ${T.k}`, "s2", true);
+  arrow(540, 194, 575, 194);
+  box(575, 162, 150, 64, "③ prompt", `talimat + ${T.k} parça`, "s3", true);
+  arrow(725, 194, 760, 194);
+  box(760, 162, 110, 64, "④ Claude", T.generate ? "cevap yazar" : "atlandı", "s4", true);
+  arrow(870, 194, 905, 194);
+  box(905, 162, 95, 64, "cevap", "+ [kaynak]");
+  // indeks → arama bağlantısı
+  svg("path", { d: "M630,94 C630,130 455,120 455,160", style: "fill:none;stroke:var(--accent);stroke-width:2;stroke-dasharray:5 4" }, s);
+  svg("text", { x: 548, y: 128, "text-anchor": "middle", class: "ink2", style: "font-size:12px", text: "arama bu matrise bakar" }, s);
+  svg("text", { x: 0, y: 262, class: "ink2", style: "font-size:12.5px",
+    text: "Mavi kutular bu sayfada ayrıntılı. ① ve ② makinende çalışır (Ollama + numpy). Dışarıya yalnızca ③'te hazırlanan metin çıkar." }, s);
+}
+
+/* ---------- Süreler ---------- */
+{
+  const c = card("time", null, "Zaman nereye gitti?", total,
+    "Her adımın süresi, toplam süreye oranıyla gösteriliyor. Genellikle zamanın büyük kısmını Claude alır. Arama, 1660 parça olmasına rağmen tek bir matris çarpımı olduğu için milisaniyeler sürer.");
+  const names = { embed: "① embed (Ollama)", search: "② arama (numpy)", prompt: "③ prompt", generate: "④ Claude" };
+  const colors = { embed: "var(--c3)", search: "var(--c1)", prompt: "var(--c4)", generate: "var(--c7)" };
+  const s = svg("svg", { viewBox: "0 0 1000 64" }, c);
+  let x = 0;
+  T.steps.forEach(st => {
+    const w = Math.max(3, st.ms / total * 1000 - 2);
+    const r = svg("rect", { x, y: 0, width: w, height: 30, rx: 4, style: `fill:${colors[st.name]}` }, s);
+    hoverable(r, `<b>${names[st.name]}</b><br>${ms(st.ms)} · toplamın %${fmt(st.ms / total * 100, 1)}'i`);
+    x += w + 2;
+  });
+  const lg = document.createElement("div"); lg.className = "legend";
+  lg.innerHTML = T.steps.map(st => `<span><i class="sw" style="background:${colors[st.name]}"></i>${names[st.name]} <b class="num">${ms(st.ms)}</b> <span style="color:var(--muted)">(%${fmt(st.ms / total * 100, 1)})</span></span>`).join("");
+  c.appendChild(lg);
+}
+
+/* ---------- ① Embed ---------- */
+{
+  const e = T.embed;
+  const c = card("s1", "1", "Soru sayıya çevrildi", stepMs("embed"),
+    `Soru metni yerel <b>${esc(T.corpus.embed_model)}</b> modeline gönderildi. Model, sorunun <i>anlamını</i> ${e.dim} sayıdan oluşan bir listeye (vektöre) çevirdi. ` +
+    "Parçalar da indekslemede aynı modelle aynı uzaya çevrilmişti. Anlamca yakın metinlerin vektörleri aynı yöne bakar.");
+  const cols = 64, rows = Math.ceil(e.dim / cols), cw = 1000 / cols, ch = 12;
+  const s = svg("svg", { viewBox: `0 0 1000 ${rows * ch + 26}`, role: "img", "aria-label": "Vektör değerleri ısı şeridi" }, c);
+  const maxAbs = Math.max(...e.preview.map(Math.abs)) || 1;
+  e.preview.forEach((v, i) => {
+    const t = Math.min(1, Math.abs(v) / maxAbs);
+    const r = svg("rect", { x: (i % cols) * cw, y: Math.floor(i / cols) * ch, width: cw - 1, height: ch - 1, rx: 1.5,
+      style: `fill:${v >= 0 ? "var(--warm)" : "var(--accent)"};fill-opacity:${(0.12 + 0.88 * t).toFixed(2)}` }, s);
+    hoverable(r, `boyut #${i}<br><b>${fmt(v, 4)}</b>`);
+  });
+  svg("text", { x: 0, y: rows * ch + 18, text: `${e.dim} kutu = ${e.dim} sayı · turuncu = pozitif, mavi = negatif, koyuluk = büyüklük · vektör uzunluğu ${fmt(e.norm, 3)} (normalize edildi)` }, s);
+  html(c, `<div class="callout">Tek bir kutunun anlamı yoktur: "#${e.preview.indexOf(Math.max(...e.preview))} numaralı boyut finans demek" gibi bir karşılık yok. Anlam, bu vektörün diğer vektörlerle yaptığı <b>açıda</b> saklıdır. Bir sonraki adım tam olarak bu açıyı ölçüyor.</div>`);
+  terms(c, [
+    ["Embedding", "Metni, anlamını koruyacak şekilde sabit uzunlukta bir sayı listesine çeviren model çıktısı."],
+    ["Vektör", `Bu sayı listesi. Burada ${e.dim} boyutlu: ${e.dim} eksenli bir uzayda tek bir ok gibi düşün.`],
+    ["Normalize", "Okun boyu 1'e eşitlenir. Böylece yalnızca yönü karşılaştırılır; uzun metin, kısa metne göre avantaj kazanmaz."],
+  ]);
+}
+
+/* ---------- ② Arama ---------- */
+{
+  const S = T.search;
+  const c = card("s2", "2", `${int(T.corpus.n_chunks)} parça puanlandı, en iyi ${T.k} tanesi seçildi`, stepMs("search"),
+    `Soru vektörü, indeksteki <b>her</b> parça vektörüyle karşılaştırıldı (kosinüs benzerliği). Sonuç ${int(T.corpus.n_chunks)} skor. Bunlar sıralandı ve en yüksek ${T.k} tanesi seçildi. Model yok, "anlama" yok: yalnızca geometri.`);
+  const lo = S.histogram.edges[0], hi = S.histogram.edges.at(-1);
+
+  // Histogram
+  html(c, `<h3>Tüm skorların dağılımı</h3><p class="lede" style="margin:0 0 6px">Her çubuk bir skor aralığı, yüksekliği o aralıktaki parça sayısı. Parçaların çoğu ortada yığılır (soruyla ilgisiz). Seçilenler sağ uçta, kesim çizgisinin sağında.</p>`);
+  {
+    const W = 1000, H = 230, m = { l: 40, r: 10, t: 16, b: 52 };
+    const s = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Skor histogramı" }, c);
+    const X = v => m.l + (v - lo) / (hi - lo) * (W - m.l - m.r);
+    const maxC = Math.max(...S.histogram.counts);
+    const Y = n => H - m.b - n / maxC * (H - m.t - m.b);
+    [0, 0.5, 1].forEach(f => {
+      const n = Math.round(maxC * f), y = Y(n);
+      svg("line", { x1: m.l, x2: W - m.r, y1: y, y2: y, style: "stroke:var(--grid)" }, s);
+      svg("text", { x: m.l - 6, y: y + 4, "text-anchor": "end", text: n }, s);
+    });
+    S.histogram.counts.forEach((n, i) => {
+      const a = S.histogram.edges[i], b = S.histogram.edges[i + 1];
+      const sel = a >= S.kth_score - 1e-9 || b > S.kth_score;
+      const x = X(a) + 1, w = Math.max(1, X(b) - X(a) - 2), y = Y(n);
+      const r = svg("rect", { x, y: n ? y : H - m.b, width: w, height: Math.max(0, H - m.b - y), rx: 2,
+        style: `fill:${sel ? "var(--accent)" : "var(--axis)"}` }, s);
+      const hitRect = svg("rect", { x: X(a), y: m.t, width: X(b) - X(a), height: H - m.t - m.b, style: "fill:transparent" }, s);
+      hoverable(hitRect, `skor ${fmt(a)} – ${fmt(b)}<br><b>${n}</b> parça`);
+    });
+    svg("line", { x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b, style: "stroke:var(--axis)" }, s);
+    for (let i = 0; i <= 5; i++) {
+      const v = lo + (hi - lo) * i / 5;
+      svg("text", { x: X(v), y: H - m.b + 16, "text-anchor": "middle", text: fmt(v, 2) }, s);
+    }
+    // seçilenlerin halısı (rug)
+    hits.forEach(h => {
+      const t = svg("line", { x1: X(h.score), x2: X(h.score), y1: H - m.b + 22, y2: H - m.b + 34, style: "stroke:var(--accent);stroke-width:2" }, s);
+      hoverable(t, `<b>#${h.rank}</b> ${fmt(h.score)}<br>${esc(h.path)}`);
+    });
+    svg("text", { x: W - m.r, y: H - 4, "text-anchor": "end", text: "↑ seçilen parçaların skorları (her çizgi bir parça)" }, s);
+    const kx = X(S.kth_score);
+    svg("line", { x1: kx, x2: kx, y1: m.t - 6, y2: H - m.b + 34, style: "stroke:var(--warm);stroke-width:2;stroke-dasharray:4 3" }, s);
+    svg("text", { x: kx - 6, y: m.t + 4, "text-anchor": "end", class: "ink", style: "font-weight:600",
+      text: `kesim ${fmt(S.kth_score)} (#${T.k})` }, s);
+    svg("text", { x: X(S.mean_score), y: m.t + 4, "text-anchor": "middle", class: "ink2", text: `ortalama ${fmt(S.mean_score, 2)}` }, s);
+  }
+  if (S.next_score != null) {
+    const gap = S.kth_score - S.next_score;
+    html(c, `<div class="callout"><b>Kıl payı:</b> ${T.k}. parça <b class="num">${fmt(S.kth_score)}</b>, ${T.k + 1}. parça <b class="num">${fmt(S.next_score)}</b>, fark yalnızca <b class="num">${fmt(gap, 4)}</b>. ` +
+      (gap < 0.01 ? "Kesim bıçak sırtında. k'yi 1 artırmak Claude'a başka bir parça gösterirdi. Aşağıdaki tabloda kesimin hemen altında kalanlar da var." : "Seçilenler geri kalanlardan belirgin biçimde ayrışıyor.") + `</div>`);
+  }
+
+  // Klasör şeridi
+  html(c, `<h3>Hangi klasör yarıştı?</h3><p class="lede" style="margin:0 0 6px">Her satır bir klasör, her nokta o klasördeki bir parça. Sağa gittikçe skor artar. Büyük noktalar seçilen ${T.k} parça.</p>`);
+  {
+    const pts = T.map.points, W = 1000, rowH = 30, m = { l: 150, r: 10, t: 6, b: 26 };
+    const H = m.t + FOLDERS.length * rowH + m.b;
+    const s = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Klasöre göre skorlar" }, c);
+    const X = v => m.l + (v - lo) / (hi - lo) * (W - m.l - m.r);
+    FOLDERS.forEach((f, fi) => {
+      const y = m.t + fi * rowH + rowH / 2;
+      svg("line", { x1: m.l, x2: W - m.r, y1: y, y2: y, style: "stroke:var(--grid)" }, s);
+      const nh = hits.filter(h => h.folder === f).length;
+      svg("text", { x: m.l - 10, y: y + 4, "text-anchor": "end", class: nh ? "ink" : "", style: nh ? "font-weight:600" : "",
+        text: `${f}${nh ? ` (${nh})` : ""}` }, s);
+    });
+    const kx = X(T.search.kth_score);
+    svg("line", { x1: kx, x2: kx, y1: m.t, y2: H - m.b, style: "stroke:var(--warm);stroke-width:2;stroke-dasharray:4 3" }, s);
+    pts.forEach((p, i) => {
+      if (p[4]) return;
+      const y = m.t + p[3] * rowH + rowH / 2 + ((i * 7919) % 11 - 5);  // sabit titreşim: üst üste binmesin
+      svg("circle", { cx: X(p[2]), cy: y, r: 2.2, style: `fill:${folderColor(p[3])};fill-opacity:.35` }, s);
+    });
+    hits.forEach(h => {
+      const fi = FOLDERS.indexOf(h.folder), y = m.t + fi * rowH + rowH / 2;
+      const d = svg("circle", { cx: X(h.score), cy: y, r: 6, style: `fill:${fColor(h.folder)};stroke:var(--surface);stroke-width:2` }, s);
+      hoverable(d, `<b>#${h.rank}</b> · ${fmt(h.score)}<br>${esc(h.path)}<br><small>${esc(h.heading_path.join(" › "))}</small>`);
+    });
+    for (let i = 0; i <= 5; i++) {
+      const v = lo + (hi - lo) * i / 5;
+      svg("text", { x: X(v), y: H - 8, "text-anchor": "middle", text: fmt(v, 2) }, s);
+    }
+  }
+
+  // Anlam haritası
+  html(c, `<h3>Anlam haritası</h3><p class="lede" style="margin:0 0 6px">${int(T.corpus.n_chunks)} parçanın ${T.corpus.dim} boyutlu vektörleri 2 boyuta indirildi (PCA). Yakın noktalar benzer konulardır, renkler klasörleri gösterir. ★ soru, numaralı halkalar seçilen parçalar. Üzerine gelince parçanın adını görürsün.</p>`);
+  {
+    const P = T.map.points, W = 1000, H = 560, pad = 20;
+    const xs = P.map(p => p[0]).concat(T.map.question[0]), ys = P.map(p => p[1]).concat(T.map.question[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const X = v => pad + (v - x0) / (x1 - x0) * (W - 2 * pad), Y = v => H - pad - (v - y0) / (y1 - y0) * (H - 2 * pad);
+    const s = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Parçaların 2B anlam haritası",
+      style: "background:var(--page);border-radius:10px" }, c);
+    P.forEach((p, i) => {
+      if (p[4]) return;
+      const d = svg("circle", { cx: X(p[0]), cy: Y(p[1]), r: 3, style: `fill:${folderColor(p[3])};fill-opacity:.45` }, s);
+      hoverable(d, () => `${esc(T.map.labels[i])}<br>skor <b>${fmt(p[2])}</b>`);
+    });
+    const qx = X(T.map.question[0]), qy = Y(T.map.question[1]);
+    hits.forEach(h => svg("line", { x1: qx, y1: qy, x2: X(h.x), y2: Y(h.y), style: "stroke:var(--ink);stroke-opacity:.18;stroke-width:1" }, s));
+    hits.forEach(h => {
+      const g = svg("g", { id: `map-hit-${h.rank}` }, s);
+      svg("circle", { cx: X(h.x), cy: Y(h.y), r: 9, style: `fill:${fColor(h.folder)};stroke:var(--surface);stroke-width:2` }, g);
+      svg("text", { x: X(h.x), y: Y(h.y) + 4, "text-anchor": "middle", style: "fill:#fff;font-size:10.5px;font-weight:700", text: h.rank }, g);
+      hoverable(g, `<b>#${h.rank}</b> · skor ${fmt(h.score)}<br>${esc(h.path)}<br><small>${esc(h.heading_path.join(" › "))}</small>`);
+    });
+    const star = (cx, cy, R) => Array.from({ length: 10 }, (_, i) => {
+      const a = Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? R * 0.45 : R;
+      return `${cx + r * Math.cos(a)},${cy - r * Math.sin(a)}`;
+    }).join(" ");
+    const q = svg("polygon", { points: star(qx, qy, 13), style: "fill:var(--ink);stroke:var(--surface);stroke-width:2" }, s);
+    hoverable(q, `<b>soru</b><br>${esc(T.question)}`);
+    const lg = document.createElement("div"); lg.className = "legend";
+    lg.innerHTML = T.corpus.folders.map((f, i) => `<span><i class="sw" style="background:${folderColor(i)}"></i>${esc(f.name)} <span style="color:var(--muted)" class="num">${f.chunks}</span></span>`).join("")
+      + `<span>★ soru</span>`;
+    c.appendChild(lg);
+    html(c, `<div class="callout"><b>Dikkat, harita yaklaşıktır:</b> 2 eksen, ${T.corpus.dim} boyuttaki yayılımın yalnızca <b>%${fmt(T.map.variance_ratio * 100, 1)}</b>'ini gösterebiliyor. Haritada uzak görünen bir parça gerçekte yakın olabilir. Seçimi harita değil, üstteki skorlar belirler. Harita yalnızca "soru hangi konu kümesine düştü?" sorusuna sezgi kazandırmak için.</div>`);
+  }
+
+  // Tablo
+  html(c, `<h3>Seçilen ${T.k} parça ve kıl payı kalanlar</h3><p class="lede" style="margin:0 0 6px">Satıra tıklayınca parçanın tam metni açılır. Bu metin Claude'a aynen gönderilir. Kesik çizginin altındakiler seçilemedi, Claude onları hiç görmedi.</p>`);
+  {
+    const all = hits.concat(runners), maxS = S.max_score, minS = Math.min(...all.map(h => h.score)) - 0.02;
+    const rows = all.map(h => {
+      const isRunner = h.rank > T.k, w = ((h.score - minS) / (maxS - minS) * 100).toFixed(1);
+      const cut = h.rank === T.k + 1 ? `<tr class="cut"><td colspan="3"></td></tr>` : "";
+      return cut + `<tr class="hit-row ${isRunner ? "runner" : ""}" id="row-${h.rank}" data-rank="${h.rank}">
+        <td class="num" style="width:42px"><b>#${h.rank}</b></td>
+        <td style="width:160px"><div class="num" style="font-size:12.5px">${fmt(h.score)}</div><div class="bar ${isRunner ? "runner" : ""}" style="width:${w}%"></div></td>
+        <td class="path"><i class="sw" style="background:${fColor(h.folder)}"></i> ${esc(h.path)}<br><small>${esc(h.heading_path.join(" › ") || "—")}</small>
+          <details><summary>parça metni (~${int(h.text.length / 4)} token)</summary><pre>${esc(h.text)}</pre></details></td></tr>`;
+    }).join("");
+    html(c, `<table><thead><tr><th>sıra</th><th>skor</th><th>kaynak › başlık</th></tr></thead><tbody>${rows}</tbody></table>`);
+  }
+  terms(c, [
+    ["Kosinüs benzerliği", "İki vektör arasındaki açının kosinüsü. 1'e yakınsa aynı yöne bakıyorlar (benzer anlam), 0'a yakınsa ilgisizler. Vektörler normalize olduğu için bu değer doğrudan nokta çarpımına eşit."],
+    ["top-k", `En yüksek skorlu k parça. Burada k=${T.k}. Küçük k bilgiyi kaçırabilir; büyük k ise Claude'a gürültü taşır ve maliyeti artırır.`],
+    ["PCA", "Çok boyutlu veriyi en çok yayıldığı birkaç eksene izdüşüren yöntem. Burada yalnızca göz için kullanılıyor, seçimi etkilemiyor."],
+  ]);
+}
+
+/* ---------- ③ Prompt ---------- */
+{
+  const P = T.prompt, totalChars = P.parts.reduce((a, p) => a + p.chars, 0);
+  const c = card("s3", "3", "Claude'a gidecek metin hazırlandı", stepMs("prompt"),
+    `Talimat (system), seçilen ${T.k} parça ve soru tek bir metinde birleştirildi. Toplam yaklaşık <b class="num">${int(totalChars / 4)}</b> token (≈ ${int(totalChars)} karakter). Claude'un bildiği tek şey bu metin: dokümanların geri kalanını görmez.`);
+  const s = svg("svg", { viewBox: "0 0 1000 44" }, c);
+  let x = 0;
+  P.parts.forEach(p => {
+    const w = Math.max(2, p.chars / totalChars * 1000 - 2);
+    const fill = p.kind === "system" ? "var(--ink2)" : p.kind === "question" ? "var(--warm)" : fColor(p.folder);
+    const r = svg("rect", { x, y: 0, width: w, height: 28, rx: 3, style: `fill:${fill}` }, s);
+    if (p.kind === "chunk" && w > 18) svg("text", { x: x + w / 2, y: 18, "text-anchor": "middle", style: "fill:#fff;font-size:11px;font-weight:700", text: p.rank }, s);
+    hoverable(r, p.kind === "system" ? `<b>talimat (system)</b><br>~${int(p.chars / 4)} token` :
+      p.kind === "question" ? `<b>soru</b>` : `<b>parça #${p.rank}</b> · ${esc(p.folder)}<br>~${int(p.chars / 4)} token`);
+    x += w + 2;
+  });
+  html(c, `<div class="legend"><span><i class="sw" style="background:var(--ink2)"></i>talimat</span><span>renkli bloklar = parçalar (klasör rengi, üstünde sıra no)</span><span><i class="sw" style="background:var(--warm)"></i>soru</span></div>`);
+  html(c, `<details><summary>Talimatı (system prompt) göster</summary><pre>${esc(P.system)}</pre></details>
+    <details><summary>Kullanıcı mesajını (parçalar + soru) göster</summary><pre>${esc(P.user)}</pre></details>`);
+  html(c, `<div class="callout">Talimatın üç kuralı RAG'in "dürüstlük" katmanıdır: <b>yalnızca bu parçalara dayan</b>, <b>her iddiaya [n] atıfı koy</b>, <b>yoksa "bulamadım" de</b>. Parçalar yanlışsa Claude'dan beklenen doğru cevap değil, "bulamadım" demesidir.</div>`);
+  terms(c, [
+    ["Prompt", "Modele gönderilen metnin tamamı. Burada iki bölümden oluşuyor: system (davranış kuralları) ve user (parçalar + soru)."],
+    ["Bağlam penceresi", "Modelin tek seferde okuyabildiği metin sınırı. RAG, binlerce dokümandan yalnızca bu pencereye sığan ilgili kısmı seçer."],
+    ["Token", "Modelin metni işlediği birim. Türkçede kabaca bir kelimenin ½–¾'ü kadardır."],
+  ]);
+}
+
+/* ---------- ④ Claude ---------- */
+{
+  const G = T.generate;
+  const c = card("s4", "4", G ? "Claude cevabı yazdı" : "Claude çağrılmadı", stepMs("generate"),
+    G ? `Claude yalnızca ③'teki metni okudu ve cevabı yazdı. Cevaptaki <span class="cite" style="cursor:default">n</span> işaretlerinin üzerine gelince hangi parçaya dayandığı yukarıdaki tabloda ve haritada vurgulanır, tıklayınca o parçaya gidersin.`
+      : "Bu iz <code>--retrieve-only</code> ile alındı. Arama tamamlandı ama cevap üretilmedi.");
+  if (G) {
+    const u = G.usage || {};
+    html(c, `<div class="tiles">
+      <div class="tile"><div class="v">${ms(stepMs("generate"))}</div><div class="l">cevap süresi</div></div>
+      <div class="tile"><div class="v">${int(u.input_tokens)}</div><div class="l">giriş token (okunan)</div></div>
+      <div class="tile"><div class="v">${int(u.output_tokens)}</div><div class="l">çıkış token (yazılan)</div></div>
+      <div class="tile"><div class="v">${G.cited.length}/${T.k}</div><div class="l">atıf alan parça</div></div></div>`);
+    if (u.stop_reason === "max_tokens")
+      html(c, `<div class="callout"><b>Cevap kesildi:</b> Claude, çıkış sınırına (${int(u.output_tokens)} token) ulaştığı için yazmayı yarıda bıraktı. Bu bir RAG hatası değil, yalnızca çıkış sınırı. <code>rag/answer.py</code> içindeki <code>max_tokens</code> değerini artırabilirsin.</div>`);
+    html(c, `<div class="answer">${renderMd(G.answer)}</div>`);
+    html(c, `<h3>Hangi parçalar gerçekten kullanıldı?</h3><div class="cited-grid">${hits.map(h => `<div class="cg ${G.cited.includes(h.rank) ? "on" : ""}" title="${esc(h.path)}">${h.rank}</div>`).join("")}</div>
+      <p class="lede">Dolu kutular cevapta atıf alan parçalar. <b>${T.k - G.cited.length}</b> parça getirildi ama kullanılmadı. Arama gereğinden fazlasını getirdiyse bu normal; ama doğru cevap boş kutulardan birindeyse Claude onu gözden kaçırmış demektir.</p>`);
+    c.querySelectorAll(".cite[data-r]").forEach(b => {
+      const r = b.dataset.r, h = hits[r - 1];
+      const on = () => { $(`#row-${r}`)?.classList.add("hl"); $(`#map-hit-${r} circle`)?.classList.add("pulse"); };
+      const off = () => { $(`#row-${r}`)?.classList.remove("hl"); $(`#map-hit-${r} circle`)?.classList.remove("pulse"); };
+      b.addEventListener("mouseenter", on); b.addEventListener("mouseleave", () => { off(); hideTip(); });
+      b.addEventListener("mousemove", ev => showTip(ev, `<b>#${r}</b> ${esc(h.path)}<br><small>${esc(h.heading_path.join(" › "))}</small>`));
+      b.addEventListener("click", () => { const row = $(`#row-${r}`); row.scrollIntoView({ behavior: "smooth", block: "center" }); row.querySelector("details").open = true; });
+    });
+  }
+  terms(c, [
+    ["Atıf [n]", "Cevaptaki iddianın dayandığı parçanın numarası. RAG'in denetlenebilir olmasını sağlayan şey bu: her cümleyi kaynağına kadar takip edebilirsin."],
+    ["Halüsinasyon", "Modelin parçalarda olmayan bir bilgiyi kendinden eklemesi. \"Bulamadım\" kuralı ve atıf zorunluluğu buna karşı konmuş bir önlem."],
+    ["Retrieval mı, generation mı?", "Cevap yanlışsa önce ②'ye bak: doğru parça listede var mı? Yoksa hata aramadadır. Varsa ama cevap yanlışsa hata Claude'dadır."],
+  ]);
+}
+
+/* ---------- Sözlük ---------- */
+{
+  const c = card("gloss", null, "Hata ayıklama rehberi", null, "Kötü bir cevap aldığında bu sayfayı yukarıdan aşağıya şu sırayla oku:");
+  html(c, `<table><tbody>
+    <tr><td style="width:36%"><b>Tabloda doğru parça yok</b></td><td>Arama hatası. Soru başka bir konu kümesine düşmüş olabilir (haritaya bak) ya da parça zayıf bir vektör üretmiştir (kısa tablo satırı, bağlamsız metin). Çözüm yolları: soruyu yeniden ifade etmek, k'yi artırmak, hibrit arama (BM25).</td></tr>
+    <tr><td><b>Doğru parça kıl payı kalanlar arasında</b></td><td>Kesim bıçak sırtında. k'yi biraz artırmak yetebilir.</td></tr>
+    <tr><td><b>Doğru parça seçilmiş ama cevap yanlış</b></td><td>Üretim hatası. ④'te o parçaya atıf var mı? Yoksa Claude onu gözden kaçırmıştır. Prompt'u ya da parça sırasını gözden geçir.</td></tr>
+    <tr><td><b>Parça metni bozuk</b></td><td>Veri hazırlığı hatası (load/chunk). Tablodaki "parça metni"ni aç. HTML artığı ya da yanlış başlık varsa sorun indekslemede.</td></tr>
+    <tr><td><b>"Bulamadım" dedi</b></td><td>Doğru davranış olabilir. Önce tabloda cevabın gerçekten olmadığını doğrula.</td></tr>
+  </tbody></table>`);
+}
+</script>
+</body>
+</html>
