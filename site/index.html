@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="tr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaza Raporları RAG</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: tek sütunlu teknik rapor; bölümler rapor numaralandırmasıyla (1, 2, 3…) çünkü sıra boru hattının sırası. */
+:root {
+  --paper: #f6f7f9; --surface: #ffffff; --ink: #18202b; --ink2: #3d4757; --muted: #6b7584;
+  --rule: #dde1e7; --track: #e9ecf0;
+  --accent: #e2590f; --accent-soft: #fbe3d4; --accent-ink: #a53d06;
+  --good: #1f7a4d; --bad: #b3261e;
+  --display: "Public Sans", "Helvetica Neue", Arial, sans-serif;
+  --body: "Public Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f141b; --surface: #161d27; --ink: #e7ebf0; --ink2: #b9c1cc; --muted: #8590a0;
+    --rule: #263040; --track: #222b38;
+    --accent: #f27330; --accent-soft: #3a2316; --accent-ink: #ffb38a;
+    --good: #5cc28f; --bad: #f2867f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f141b; --surface: #161d27; --ink: #e7ebf0; --ink2: #b9c1cc; --muted: #8590a0;
+  --rule: #263040; --track: #222b38;
+  --accent: #f27330; --accent-soft: #3a2316; --accent-ink: #ffb38a;
+  --good: #5cc28f; --bad: #f2867f; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font: 15.5px/1.6 var(--body); }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.prose { max-width: 66ch; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.2; margin: 0; }
+h1 { font-size: clamp(28px, 5vw, 40px); font-weight: 700; letter-spacing: -0.015em; }
+h2 { font-size: 22px; font-weight: 650; display: flex; gap: 12px; align-items: baseline; }
+h2 .no { font-family: var(--mono); font-size: 14px; color: var(--accent-ink); font-weight: 500; }
+h3 { font-size: 16px; font-weight: 600; }
+p { margin: 0; }
+a { color: var(--accent-ink); text-underline-offset: 2px; }
+a:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.mono, .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.muted { color: var(--muted); }
+header { display: grid; gap: 14px; padding-bottom: 28px; border-bottom: 2px solid var(--ink); }
+.draft { justify-self: start; font-family: var(--mono); font-size: 12px; color: var(--accent-ink);
+  background: var(--accent-soft); padding: 3px 9px; border-radius: 4px; }
+.lede { font-size: 17px; color: var(--ink2); }
+section { display: grid; gap: 16px; padding-block: 40px 8px; }
+section + section { border-top: 1px solid var(--rule); }
+
+/* boru hattı */
+.pipe { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1px;
+  background: var(--rule); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.pipe div { background: var(--surface); padding: 12px 14px; display: grid; gap: 2px; align-content: start; }
+.pipe b { font-family: var(--mono); font-size: 20px; font-weight: 500; }
+.pipe span { font-size: 13px; color: var(--ink2); }
+.pipe .off b { color: var(--muted); }
+
+/* OCR grafiği */
+.bars { display: grid; gap: 5px; }
+.bar-row { display: grid; grid-template-columns: minmax(0, 210px) minmax(0, 1fr) 74px; gap: 10px; align-items: center; font-size: 13px; }
+.bar-row .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-row .name small { color: var(--muted); font-family: var(--mono); font-size: 11.5px; }
+.track { position: relative; height: 12px; background: var(--track); border-radius: 2px; }
+.track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; }
+.track .ocr { background: var(--accent); }
+.track .raw { background: var(--ink); }
+.bar-row .v { text-align: right; font-family: var(--mono); font-size: 12px; color: var(--ink2); }
+.axis { display: grid; grid-template-columns: minmax(0, 210px) minmax(0, 1fr) 74px; gap: 10px; font-size: 11.5px; color: var(--muted); font-family: var(--mono); }
+.axis .ticks { position: relative; height: 16px; }
+.axis .ticks span { position: absolute; transform: translateX(-50%); }
+.axis .ticks span:first-child { transform: none; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink2); }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
+.callout { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.stat { border-left: 3px solid var(--accent); padding: 2px 0 2px 12px; display: grid; gap: 2px; }
+.stat b { font-family: var(--mono); font-size: 24px; font-weight: 500; }
+.stat span { font-size: 13px; color: var(--ink2); }
+
+/* tablolar */
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+td.best { color: var(--accent-ink); font-weight: 600; }
+
+/* soru kartları */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.card .top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chip { font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border-radius: 3px; border: 1px solid var(--rule); color: var(--ink2); }
+.chip.trap { border-color: var(--accent); color: var(--accent-ink); }
+.chip.tr { border-color: var(--ink2); }
+.card .q { font-size: 16px; font-weight: 600; line-height: 1.4; }
+.card .lesson { font-size: 14px; color: var(--ink2); }
+.card .exp { font-size: 13px; color: var(--muted); }
+.card .exp code { font-family: var(--mono); font-size: 12.5px; color: var(--ink); background: var(--track); padding: 0 4px; border-radius: 3px; }
+.ranks { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); font-size: 13px; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+.ranks > div { padding: 5px 8px; border-bottom: 1px solid var(--rule); }
+.ranks > div:nth-last-child(-n+4) { border-bottom: 0; }
+.ranks .h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; background: var(--paper); }
+.ranks .v { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.r-ok { color: var(--good); } .r-mid { color: var(--ink); } .r-bad { color: var(--bad); }
+.card .open { justify-self: start; font-size: 14px; font-weight: 600; }
+.card .answer { font-size: 14px; border-left: 3px solid var(--rule); padding-left: 10px; color: var(--ink2); }
+
+/* eşik */
+.threshold { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 16px; display: grid; gap: 12px; }
+.threshold svg { width: 100%; height: auto; display: block; }
+.threshold input[type=range] { width: 100%; accent-color: var(--accent); }
+.readout { font-size: 15px; }
+.readout b { font-family: var(--mono); font-weight: 500; }
+
+footer { padding-top: 40px; display: grid; gap: 14px; font-size: 13.5px; color: var(--ink2); }
+footer ol { margin: 0; padding-left: 20px; display: grid; gap: 3px; columns: 2 320px; }
+footer li { break-inside: avoid; }
+@media (max-width: 560px) {
+  .bar-row, .axis { grid-template-columns: minmax(0, 120px) minmax(0, 1fr) 56px; gap: 8px; }
+}
+@media (prefers-reduced-motion: no-preference) { .track i { transition: width .4s ease; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="draft" id="draft-flag">TASLAK</span>
+    <h1>Kaza raporları üzerinde RAG</h1>
+    <p class="lede prose" id="lede"></p>
+    <p class="prose muted">Bu sayfa canlı değil: her soru <a href="https://github.com/hayatibis/rag-lab">rag-lab</a> ile bir kez çalıştırıldı ve sonuçları buraya kondu. Aynı adımları kendi makinende <span class="mono">corpora/aci/</span> altındaki scriptlerle tekrarlayabilirsin.</p>
+  </header>
+
+  <section>
+    <h2><span class="no">1</span>Boru hattı</h2>
+    <div class="pipe" id="pipe"></div>
+  </section>
+
+  <section>
+    <h2><span class="no">2</span>OCR olmadan raporların yarısı yok</h2>
+    <p class="prose">Eski NTSB ve AAIB raporları taranmış görüntü. PDF okuyucu bunlardan tek karakter çıkaramıyor, hata da vermiyor: rapor sessizce indeksin dışında kalıyor. Bazı yeni raporların ekleri de taranmış.</p>
+    <div class="callout" id="ocr-callout"></div>
+    <div class="legend"><span><i class="sw" style="background:var(--ink)"></i>OCR'sız çıkan metin</span><span><i class="sw" style="background:var(--accent)"></i>OCR'dan sonra</span></div>
+    <div class="bars" id="bars"></div>
+    <div class="axis"><span></span><div class="ticks" id="ticks"></div><span>bin kar.</span></div>
+  </section>
+
+  <section>
+    <h2><span class="no">3</span>Üç arama, aynı sorular</h2>
+    <p class="prose">Rapor başına iki soru ve beş Türkçe soru, toplam <span id="n-q"></span>. <b>Dosya</b> doğru raporun ilk sırada gelip gelmediğini ölçer. <b>Parça</b> daha sıkıdır: ilk k parçadan biri doğru rapordan gelmeli ve cevabın geçtiği ifadeyi içermeli. Dosya düzeyinde hepsi iyi görünüyor; fark parça düzeyinde çıkıyor.</p>
+    <div class="scroll"><table id="results"></table></div>
+  </section>
+
+  <section>
+    <h2><span class="no">4</span>On iki soru, her adımıyla</h2>
+    <p class="prose">Her kartta üç yöntemin sıraları var: dosya / parça. Yeşil ilk 5, kırmızı ilk 8'in dışı. <b>İz sayfasını aç</b> o sorunun yolculuğunu gösterir: 1024 boyutlu vektör, tüm parçaların skor dağılımı, anlam haritası ve seçilen parçaların tam metni.</p>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section>
+    <h2><span class="no">5</span>"Bulamadım" demek için eşik yetmiyor</h2>
+    <p class="prose">Tuzak sorular korpusta olmayan ama korpustakilere benzeyen kazaları soruyor. Arama yine de en yakın parçayı getiriyor. En yüksek kosinüs skoruna bir eşik koyup altında kalanları "bulamadım" saymak ilk akla gelen çözüm. Eşiği kaydırıp dene.</p>
+    <div class="threshold">
+      <svg id="strip" viewBox="0 0 640 150" role="img" aria-label="Gerçek ve tuzak soruların en yüksek kosinüs skorları"></svg>
+      <label class="label" for="cut">Eşik</label>
+      <input id="cut" type="range" min="0.50" max="0.73" step="0.005" value="0.58">
+      <p class="readout" id="readout" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <footer>
+    <p><b>Raporlar.</b> Her biri ilgili kurumun resmî kaza raporu. NTSB raporları ABD kamu malıdır; diğer kurumların raporlarından yalnızca kısa alıntılar gösterilir. Raporların hiçbiri repoda değil, <span class="mono">fetch.py</span> kaynağından indirir.</p>
+    <ol id="refs"></ol>
+    <p class="muted" id="foot"></p>
+  </footer>
+</div>
+
+<script type="application/json" id="data">{"corpus": {"reports": 23, "chunks": 6174, "dim": 1024, "embed_model": "bge-m3", "chunk_tokens": 800, "overlap_tokens": 120, "by_decade": {"1980'ler": 1378, "1990'ler": 1524, "2000'ler": 1761, "1970'ler": 306, "2010'ler": 1205}}, "reports": [{"id": "001-united-airlines-flight-811", "incident": "United Airlines Flight 811", "date": "1989-02-24", "agency": "NTSB", "report_id": "NTSB/AAR-92/02", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR9202.pdf"}, {"id": "013-aloha-airlines-flight-243", "incident": "Aloha Airlines Flight 243", "date": "1988-04-28", "agency": "NTSB", "report_id": "NTSB/AAR-89/03", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR8903.pdf"}, {"id": "044-eastern-air-lines-flight-401", "incident": "Eastern Air Lines Flight 401", "date": "1972-12-29", "agency": "NTSB", "report_id": "NTSB/AAR-73/14", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR7314.pdf"}, {"id": "036-delta-air-lines-flight-191", "incident": "Delta Air Lines Flight 191", "date": "1985-08-02", "agency": "NTSB", "report_id": "NTSB/AAR-86/05", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR8605.pdf"}, {"id": "092-american-airlines-flight-191", "incident": "American Airlines Flight 191", "date": "1979-05-25", "agency": "NTSB", "report_id": "NTSB-AAR-79-17", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR7917.pdf"}, {"id": "093-united-airlines-flight-173", "incident": "United Airlines Flight 173", "date": "1978-12-28", "agency": "NTSB", "report_id": "NTSB-AAR-79-7", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR7907.pdf"}, {"id": "085-united-airlines-flight-232", "incident": "United Airlines Flight 232", "date": "1989-07-19", "agency": "NTSB", "report_id": "NTSB/AAR-90/06", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR9006.pdf"}, {"id": "102-air-florida-flight-90", "incident": "Air Florida Flight 90", "date": "1982-01-13", "agency": "NTSB", "report_id": "NTSB-AAR-82-8", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR8208.pdf"}, {"id": "060-northwest-airlines-flight-255", "incident": "Northwest Airlines Flight 255", "date": "1987-08-16", "agency": "NTSB", "report_id": "NTSB/AAR-88/05 · DCA87MA046", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR8805.pdf"}, {"id": "002-american-airlines-flight-1420", "incident": "American Airlines Flight 1420", "date": "1999-06-01", "agency": "NTSB", "report_id": "NTSB/AAR-01/02", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR0102.pdf"}, {"id": "005-alaska-airlines-flight-261", "incident": "Alaska Airlines Flight 261", "date": "2000-01-31", "agency": "NTSB", "report_id": "NTSB/AAR-02/01", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR0201.pdf"}, {"id": "056-american-eagle-flight-4184", "incident": "American Eagle Flight 4184", "date": "1994-10-31", "agency": "NTSB", "report_id": "NTSB/AAR-96/01 · DCA95MA001", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR9601.pdf"}, {"id": "070-colgan-air-flight-3407", "incident": "Colgan Air Flight 3407", "date": "2009-02-12", "agency": "NTSB", "report_id": "NTSB/AAR-10/01 · DCA09MA027", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR1001.pdf"}, {"id": "071-us-airways-flight-1549", "incident": "US Airways Flight 1549", "date": "2009-01-15", "agency": "NTSB", "report_id": "NTSB/AAR-10/03 · DCA09MA026", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR1003.pdf"}, {"id": "122-asiana-airlines-flight-214", "incident": "Asiana Airlines Flight 214", "date": "2013-07-06", "agency": "NTSB", "report_id": "NTSB/AAR-14/01", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR1401.pdf"}, {"id": "183-comair-flight-5191", "incident": "Comair Flight 5191", "date": "2006-08-27", "agency": "NTSB", "report_id": "NTSB/AAR-07/05", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR0705.pdf"}, {"id": "185-southwest-airlines-flight-1380", "incident": "Southwest Airlines Flight 1380", "date": "2018-04-17", "agency": "NTSB", "report_id": "NTSB/AAR-19/03", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR1903.pdf"}, {"id": "087-valujet-flight-592", "incident": "ValuJet Flight 592", "date": "1996-05-11", "agency": "NTSB", "report_id": "NTSB/AAR-97/06 · DCA96MA054", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR9706.pdf"}, {"id": "030-united-airlines-flight-585", "incident": "United Airlines Flight 585 / USAir Flight 427 / Eastwind Airlines Flight 517", "date": "1991-03-03 (UA585); 1994-09-08 (USAir 427); 1996-06-09 (Eastwind 517)", "agency": "NTSB", "report_id": "UA585: NTSB/AAR-01/01", "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR0101.pdf"}, {"id": "003-swissair-flight-111", "incident": "Swissair Flight 111", "date": "1998-09-02", "agency": "TSB (Canada)", "report_id": "A98H0003", "report_url": "https://www.tsb.gc.ca/sites/default/files/rapports-reports/aviation/A98H0003/eng/a98h0003.pdf"}, {"id": "098-air-france-flight-447", "incident": "Air France Flight 447", "date": "2009-06-01", "agency": "BEA (France)", "report_id": "f-cp090601", "report_url": "https://bea.aero/fileadmin/documents/docspa/2009/f-cp090601.en/pdf/f-cp090601.en.pdf"}, {"id": "007-british-airways-flight-5390", "incident": "British Airways Flight 5390", "date": "1990-06-10", "agency": "AAIB (UK)", "report_id": "AAIB 1/1992", "report_url": "https://assets.publishing.service.gov.uk/media/5422faa7e5274a131400078d/1-1992_G-BJRT_2_.pdf"}, {"id": "110-kegworth-air-disaster", "incident": "Kegworth air disaster (British Midland Flight 092)", "date": "1989-01-08", "agency": "AAIB (UK)", "report_id": "4/1990", "report_url": "https://assets.publishing.service.gov.uk/media/5422fefeed915d13710009ed/4-1990_G-OBME.pdf"}, {"id": "137-germanwings-flight-9525", "incident": "Germanwings Flight 9525", "date": "2015-03-24", "agency": "BEA (France)", "report_id": "BEA2015-0125", "report_url": "https://bea.aero/fileadmin/uploads/tx_elydbrapports/BEA2015-0125.en-LR.pdf"}, {"id": "184-lion-air-flight-610", "incident": "Lion Air Flight 610", "date": "2018-10-29", "agency": "KNKT (Indonesia)", "report_id": "KNKT.18.10.35.04", "report_url": "https://knkt.go.id/Repo/Files/Laporan/Penerbangan/2018/KNKT.18.10.33.04-Final-Report.pdf"}], "stats": [{"id": "001-united-airlines-flight-811", "pages": 121, "empty_raw": 121, "chars_raw": 0, "chars_ocr": 212635}, {"id": "013-aloha-airlines-flight-243", "pages": 264, "empty_raw": 264, "chars_raw": 0, "chars_ocr": 455928}, {"id": "044-eastern-air-lines-flight-401", "pages": 50, "empty_raw": 50, "chars_raw": 0, "chars_ocr": 84320}, {"id": "036-delta-air-lines-flight-191", "pages": 167, "empty_raw": 167, "chars_raw": 0, "chars_ocr": 413089}, {"id": "092-american-airlines-flight-191", "pages": 104, "empty_raw": 104, "chars_raw": 0, "chars_ocr": 260659}, {"id": "093-united-airlines-flight-173", "pages": 64, "empty_raw": 2, "chars_raw": 102120, "chars_ocr": 102120}, {"id": "102-air-florida-flight-90", "pages": 142, "empty_raw": 142, "chars_raw": 0, "chars_ocr": 332011}, {"id": "060-northwest-airlines-flight-255", "pages": 140, "empty_raw": 140, "chars_raw": 0, "chars_ocr": 303816}, {"id": "002-american-airlines-flight-1420", "pages": 230, "empty_raw": 1, "chars_raw": 567460, "chars_ocr": 567460}, {"id": "005-alaska-airlines-flight-261", "pages": 250, "empty_raw": 3, "chars_raw": 610781, "chars_ocr": 610781}, {"id": "056-american-eagle-flight-4184", "pages": 340, "empty_raw": 29, "chars_raw": 606035, "chars_ocr": 615185}, {"id": "070-colgan-air-flight-3407", "pages": 299, "empty_raw": 4, "chars_raw": 710131, "chars_ocr": 718359}, {"id": "071-us-airways-flight-1549", "pages": 213, "empty_raw": 1, "chars_raw": 440973, "chars_ocr": 440973}, {"id": "122-asiana-airlines-flight-214", "pages": 207, "empty_raw": 0, "chars_raw": 522331, "chars_ocr": 522331}, {"id": "183-comair-flight-5191", "pages": 174, "empty_raw": 3, "chars_raw": 387263, "chars_ocr": 387263}, {"id": "185-southwest-airlines-flight-1380", "pages": 193, "empty_raw": 0, "chars_raw": 366715, "chars_ocr": 366715}, {"id": "087-valujet-flight-592", "pages": 271, "empty_raw": 59, "chars_raw": 527127, "chars_ocr": 691007}, {"id": "030-united-airlines-flight-585", "pages": 214, "empty_raw": 2, "chars_raw": 432891, "chars_ocr": 432891}, {"id": "098-air-france-flight-447", "pages": 223, "empty_raw": 11, "chars_raw": 480825, "chars_ocr": 480825}, {"id": "007-british-airways-flight-5390", "pages": 62, "empty_raw": 62, "chars_raw": 0, "chars_ocr": 124086}, {"id": "110-kegworth-air-disaster", "pages": 164, "empty_raw": 164, "chars_raw": 0, "chars_ocr": 404812}, {"id": "137-germanwings-flight-9525", "pages": 110, "empty_raw": 0, "chars_raw": 270441, "chars_ocr": 270441}, {"id": "184-lion-air-flight-610", "pages": 322, "empty_raw": 1, "chars_raw": 670733, "chars_ocr": 670733}], "results": {"dense": {"file@1": 48, "chunk@5": 40, "chunk@8": 43}, "bm25": {"file@1": 47, "chunk@5": 42, "chunk@8": 45}, "hybrid": {"file@1": 48, "chunk@5": 39, "chunk@8": 46}, "n": 51}, "scores": [{"question": "Which earlier cargo door incident on a Pan Am 747 should have led Boeing and the FAA to act sooner?", "kind": "detail", "max_score": 0.7015, "top_file": "001-united-airlines-flight-811.pdf"}, {"question": "What electrical fault let the 747's cargo door latches move toward unlatched after the door was closed?", "kind": "detail", "max_score": 0.7161, "top_file": "001-united-airlines-flight-811.pdf"}, {"question": "What reverse thrust limit did the MD-82 crew exceed after landing at Little Rock?", "kind": "detail", "max_score": 0.575, "top_file": "002-american-airlines-flight-1420.pdf"}, {"question": "Which part did the crew fail to make sure had extended after touchdown in the Little Rock storm?", "kind": "detail", "max_score": 0.5563, "top_file": "002-american-airlines-flight-1420.pdf"}, {"question": "Which nut's threads wore away in the MD-80 stabilizer trim jackscrew?", "kind": "detail", "max_score": 0.6705, "top_file": "005-alaska-airlines-flight-261.pdf"}, {"question": "Which maintenance interval extension, approved by the FAA, contributed to the jackscrew failure?", "kind": "detail", "max_score": 0.6746, "top_file": "005-alaska-airlines-flight-261.pdf"}, {"question": "Who fitted the BAC One-Eleven windscreen, and why did nobody catch the wrong screws?", "kind": "detail", "max_score": 0.5777, "top_file": "007-british-airways-flight-5390.pdf"}, {"question": "When was the windscreen installation first tested?", "kind": "detail", "max_score": 0.5669, "top_file": "007-british-airways-flight-5390.pdf"}, {"question": "At which lap joint did the Aloha 737 fuselage fail?", "kind": "detail", "max_score": 0.6647, "top_file": "013-aloha-airlines-flight-243.pdf"}, {"question": "Which Airworthiness Directive did the FAA fail to extend to all lap joints?", "kind": "detail", "max_score": 0.6071, "top_file": "013-aloha-airlines-flight-243.pdf"}, {"question": "Which part of the 737 main rudder power control unit servo valve jammed?", "kind": "detail", "max_score": 0.6786, "top_file": "030-united-airlines-flight-585.pdf"}, {"question": "How far did the rudder of United 585 move before control was lost?", "kind": "detail", "max_score": 0.6686, "top_file": "030-united-airlines-flight-585.pdf"}, {"question": "What did the Delta L-1011 crew see inside the cloud they flew into at Dallas/Fort Worth?", "kind": "detail", "max_score": 0.6349, "top_file": "036-delta-air-lines-flight-191.pdf"}, {"question": "How many lives had wind shear accidents cost since 1970, according to the NTSB?", "kind": "detail", "max_score": 0.5484, "top_file": "036-delta-air-lines-flight-191.pdf"}, {"question": "For how long did the crew fail to monitor the instruments before the L-1011 hit the Everglades?", "kind": "detail", "max_score": 0.625, "top_file": "044-eastern-air-lines-flight-401.pdf"}, {"question": "Which indicating system's malfunction distracted the Eastern 401 crew?", "kind": "detail", "max_score": 0.5755, "top_file": "044-eastern-air-lines-flight-401.pdf"}, {"question": "Which French authority did the NTSB fault in the ATR 72 icing crash?", "kind": "detail", "max_score": 0.5732, "top_file": "056-american-eagle-flight-4184.pdf"}, {"question": "What sudden aerodynamic event followed the ridge of ice beyond the deice boots?", "kind": "detail", "max_score": 0.5849, "top_file": "056-american-eagle-flight-4184.pdf"}, {"question": "Which checklist did the MD-82 crew not use at Detroit?", "kind": "detail", "max_score": 0.5486, "top_file": "002-american-airlines-flight-1420.pdf"}, {"question": "Why did the takeoff warning system stay silent on Northwest 255?", "kind": "detail", "max_score": 0.6535, "top_file": "060-northwest-airlines-flight-255.pdf"}, {"question": "Which cockpit procedure did the Colgan Q400 crew fail to adhere to?", "kind": "detail", "max_score": 0.6179, "top_file": "070-colgan-air-flight-3407.pdf"}, {"question": "Which cue rose on the airspeed display while the Colgan crew wasn't watching?", "kind": "detail", "max_score": 0.6483, "top_file": "070-colgan-air-flight-3407.pdf"}, {"question": "Which equipment, not required for that flight, helped everyone survive the Hudson ditching?", "kind": "detail", "max_score": 0.5578, "top_file": "071-us-airways-flight-1549.pdf"}, {"question": "What did the FAA approve for ditching certification without checking whether pilots could achieve it without thrust?", "kind": "detail", "max_score": 0.6183, "top_file": "071-us-airways-flight-1549.pdf"}, {"question": "Which hazardous materials policy did ValuJet have that its contractors' staff did not know about?", "kind": "detail", "max_score": 0.6775, "top_file": "087-valujet-flight-592.pdf"}, {"question": "Which maintenance contractor failed to properly prepare the oxygen generators on ValuJet 592?", "kind": "detail", "max_score": 0.7226, "top_file": "087-valujet-flight-592.pdf"}, {"question": "Which slats retracted on their own when the DC-10 lost its engine at O'Hare?", "kind": "detail", "max_score": 0.5516, "top_file": "092-american-airlines-flight-191.pdf"}, {"question": "Which warning systems did American 191 lose when the No. 1 engine separated?", "kind": "detail", "max_score": 0.5861, "top_file": "092-american-airlines-flight-191.pdf"}, {"question": "What was the DC-8 captain preoccupied with while the fuel ran out near Portland?", "kind": "detail", "max_score": 0.5834, "top_file": "093-united-airlines-flight-173.pdf"}, {"question": "What style of management for captains did the NTSB recommend after United 173?", "kind": "detail", "max_score": 0.5667, "top_file": "070-colgan-air-flight-3407.pdf"}, {"question": "What obstructed the pitot probes on AF447?", "kind": "detail", "max_score": 0.5505, "top_file": "098-air-france-flight-447.pdf"}, {"question": "Why did the AF447 crew never apply a stall recovery?", "kind": "detail", "max_score": 0.586, "top_file": "098-air-france-flight-447.pdf"}, {"question": "Which engine system did the Air Florida crew not use during ground operation and takeoff?", "kind": "detail", "max_score": 0.6059, "top_file": "102-air-florida-flight-90.pdf"}, {"question": "Which 737 characteristic made even a little snow on the leading edge dangerous?", "kind": "detail", "max_score": 0.6569, "top_file": "102-air-florida-flight-90.pdf"}, {"question": "Which engine did the British Midland 737 crew shut down at Kegworth?", "kind": "detail", "max_score": 0.6373, "top_file": "110-kegworth-air-disaster.pdf"}, {"question": "What did the Kegworth pilots not hear about that passengers and cabin crew had seen?", "kind": "detail", "max_score": 0.5974, "top_file": "110-kegworth-air-disaster.pdf"}, {"question": "What did the pilot flying unintentionally deactivate on the 777 approach to San Francisco?", "kind": "detail", "max_score": 0.6084, "top_file": "122-asiana-airlines-flight-214.pdf"}, {"question": "What did the complexity of the 777 autothrottle increase the likelihood of?", "kind": "detail", "max_score": 0.5929, "top_file": "122-asiana-airlines-flight-214.pdf"}, {"question": "Why couldn't the captain get back into the A320 cockpit?", "kind": "detail", "max_score": 0.6042, "top_file": "137-germanwings-flight-9525.pdf"}, {"question": "Which German rule did the BEA say lacked clear guidance on threats to public safety?", "kind": "detail", "max_score": 0.5259, "top_file": "137-germanwings-flight-9525.pdf"}, {"question": "What kind of conversation during taxi cost the Comair crew their positional awareness?", "kind": "detail", "max_score": 0.6637, "top_file": "183-comair-flight-5191.pdf"}, {"question": "What did the FAA fail to require for runway crossings at the time of the Lexington crash?", "kind": "detail", "max_score": 0.6015, "top_file": "183-comair-flight-5191.pdf"}, {"question": "How many angle-of-attack sensors did MCAS rely on?", "kind": "detail", "max_score": 0.5816, "top_file": "184-lion-air-flight-610.pdf"}, {"question": "Which alert was not correctly enabled during 737 MAX development?", "kind": "detail", "max_score": 0.6315, "top_file": "122-asiana-airlines-flight-214.pdf"}, {"question": "Which fan blade number cracked on the Southwest 1380 engine?", "kind": "detail", "max_score": 0.6926, "top_file": "185-southwest-airlines-flight-1380.pdf"}, {"question": "Which fan cowl part struck the fuselage near the window?", "kind": "detail", "max_score": 0.6981, "top_file": "185-southwest-airlines-flight-1380.pdf"}, {"question": "747'nin kargo kapısı uçuş sırasında neden açıldı?", "kind": "tr", "max_score": 0.6609, "top_file": "001-united-airlines-flight-811.pdf"}, {"question": "MD-80'in stabilizör trim vidası neden aşındı?", "kind": "tr", "max_score": 0.6335, "top_file": "005-alaska-airlines-flight-261.pdf"}, {"question": "AF447 mürettebatı neden stall'dan çıkış manevrası yapmadı?", "kind": "tr", "max_score": 0.5972, "top_file": "098-air-france-flight-447.pdf"}, {"question": "Comair uçağı neden yanlış pistten kalkmaya çalıştı?", "kind": "tr", "max_score": 0.6355, "top_file": "183-comair-flight-5191.pdf"}, {"question": "Germanwings'te kaptan kokpite neden giremedi?", "kind": "tr", "max_score": 0.6095, "top_file": "137-germanwings-flight-9525.pdf"}, {"question": "Why did Ethiopian Airlines Flight 302 crash after takeoff from Addis Ababa?", "kind": "trap", "max_score": 0.5774, "top_file": "184-lion-air-flight-610.pdf"}, {"question": "What caused the in-flight fire on Swissair Flight 111?", "kind": "trap", "max_score": 0.5696, "top_file": "087-valujet-flight-592.pdf"}, {"question": "Why did United Airlines Flight 232 lose all hydraulics over Iowa?", "kind": "trap", "max_score": 0.6157, "top_file": "070-colgan-air-flight-3407.pdf"}, {"question": "Why did Air Canada Flight 143 run out of fuel over Manitoba?", "kind": "trap", "max_score": 0.5487, "top_file": "093-united-airlines-flight-173.pdf"}, {"question": "What ignited the center fuel tank on TWA Flight 800?", "kind": "trap", "max_score": 0.5257, "top_file": "185-southwest-airlines-flight-1380.pdf"}, {"question": "What caused the Tenerife airport disaster in 1977?", "kind": "trap", "max_score": 0.5075, "top_file": "122-asiana-airlines-flight-214.pdf"}, {"question": "Why did the autothrottle of Turkish Airlines Flight 1951 retard to idle?", "kind": "trap", "max_score": 0.5632, "top_file": "122-asiana-airlines-flight-214.pdf"}, {"question": "Why did Air Transat Flight 236 run out of fuel over the Atlantic?", "kind": "trap", "max_score": 0.5495, "top_file": "093-united-airlines-flight-173.pdf"}], "gallery": [{"n": 1, "question": "Which engine did the British Midland 737 crew shut down at Kegworth?", "lesson": "Taranmış 1990 raporu, OCR'dan sonra bulunuyor", "kind": "detail", "expected": "110-kegworth-air-disaster.pdf", "expected_page": 160, "expected_phrase": "No 2 engine", "trace": "traces/q01.html", "max_score": 0.6373, "answer": null, "methods": {"dense": {"files": ["110-kegworth-air-disaster.pdf", "122-asiana-airlines-flight-214.pdf", "007-british-airways-flight-5390.pdf", "071-us-airways-flight-1549.pdf", "001-united-airlines-flight-811.pdf"], "file_rank": 1, "chunk_rank": 1}, "bm25": {"files": ["110-kegworth-air-disaster.pdf", "102-air-florida-flight-90.pdf", "071-us-airways-flight-1549.pdf", "001-united-airlines-flight-811.pdf", "007-british-airways-flight-5390.pdf"], "file_rank": 1, "chunk_rank": 1}, "hybrid": {"files": ["110-kegworth-air-disaster.pdf", "001-united-airlines-flight-811.pdf", "007-british-airways-flight-5390.pdf", "102-air-florida-flight-90.pdf", "185-southwest-airlines-flight-1380.pdf"], "file_rank": 1, "chunk_rank": 1}}}, {"n": 2, "question": "What did the Kegworth pilots not hear about that passengers and cabin crew had seen?", "lesson": "Cevap tek bir kısa satırda", "kind": "detail", "expected": "110-kegworth-air-disaster.pdf", "expected_page": 160, "expected_phrase": "flames", "trace": "traces/q02.html", "max_score": 0.5974, "answer": null, "methods": {"dense": {"files": ["110-kegworth-air-disaster.pdf", "071-us-airways-flight-1549.pdf", "102-air-florida-flight-90.pdf", "002-american-airlines-flight-1420.pdf", "036-delta-air-lines-flight-191.pdf"], "file_rank": 1, "chunk_rank": 3}, "bm25": {"files": ["110-kegworth-air-disaster.pdf", "185-southwest-airlines-flight-1380.pdf", "122-asiana-airlines-flight-214.pdf", "007-british-airways-flight-5390.pdf", "036-delta-air-lines-flight-191.pdf"], "file_rank": 1, "chunk_rank": 6}, "hybrid": {"files": ["110-kegworth-air-disaster.pdf", "098-air-france-flight-447.pdf", "070-colgan-air-flight-3407.pdf", "183-comair-flight-5191.pdf", "185-southwest-airlines-flight-1380.pdf"], "file_rank": 1, "chunk_rank": 3}}}, {"n": 3, "question": "How many angle-of-attack sensors did MCAS rely on?", "lesson": "Kısa, net bir olgu", "kind": "detail", "expected": "184-lion-air-flight-610.pdf", "expected_page": 217, "expected_phrase": "single AOA sensor", "trace": "traces/q03.html", "max_score": 0.5816, "answer": null, "methods": {"dense": {"files": ["184-lion-air-flight-610.pdf", "002-american-airlines-flight-1420.pdf", "060-northwest-airlines-flight-255.pdf", "036-delta-air-lines-flight-191.pdf", "122-asiana-airlines-flight-214.pdf"], "file_rank": 1, "chunk_rank": 1}, "bm25": {"files": ["184-lion-air-flight-610.pdf", "098-air-france-flight-447.pdf", "036-delta-air-lines-flight-191.pdf", "005-alaska-airlines-flight-261.pdf", "060-northwest-airlines-flight-255.pdf"], "file_rank": 1, "chunk_rank": 3}, "hybrid": {"files": ["184-lion-air-flight-610.pdf", "060-northwest-airlines-flight-255.pdf", "098-air-france-flight-447.pdf", "036-delta-air-lines-flight-191.pdf", "005-alaska-airlines-flight-261.pdf"], "file_rank": 1, "chunk_rank": 1}}}, {"n": 4, "question": "What style of management for captains did the NTSB recommend after United 173?", "lesson": "Nadir ifade: BM25 buluyor, dense kaçırıyor", "kind": "detail", "expected": "093-united-airlines-flight-173.pdf", "expected_page": 36, "expected_phrase": "participative management", "trace": "traces/q04.html", "max_score": 0.5667, "answer": null, "methods": {"dense": {"files": ["070-colgan-air-flight-3407.pdf", "071-us-airways-flight-1549.pdf", "122-asiana-airlines-flight-214.pdf", "093-united-airlines-flight-173.pdf", "185-southwest-airlines-flight-1380.pdf"], "file_rank": 4, "chunk_rank": null}, "bm25": {"files": ["122-asiana-airlines-flight-214.pdf", "093-united-airlines-flight-173.pdf", "070-colgan-air-flight-3407.pdf", "071-us-airways-flight-1549.pdf", "102-air-florida-flight-90.pdf"], "file_rank": 2, "chunk_rank": 2}, "hybrid": {"files": ["070-colgan-air-flight-3407.pdf", "071-us-airways-flight-1549.pdf", "093-united-airlines-flight-173.pdf", "122-asiana-airlines-flight-214.pdf", "102-air-florida-flight-90.pdf"], "file_rank": 3, "chunk_rank": 30}}}, {"n": 5, "question": "Why did the AF447 crew never apply a stall recovery?", "lesson": "Doğru rapor, yanlış parça", "kind": "detail", "expected": "098-air-france-flight-447.pdf", "expected_page": 202, "expected_phrase": "never understood that they were stalling", "trace": "traces/q05.html", "max_score": 0.586, "answer": null, "methods": {"dense": {"files": ["098-air-france-flight-447.pdf", "070-colgan-air-flight-3407.pdf", "122-asiana-airlines-flight-214.pdf", "002-american-airlines-flight-1420.pdf", "092-american-airlines-flight-191.pdf"], "file_rank": 1, "chunk_rank": 19}, "bm25": {"files": ["070-colgan-air-flight-3407.pdf", "098-air-france-flight-447.pdf", "060-northwest-airlines-flight-255.pdf", "056-american-eagle-flight-4184.pdf", "071-us-airways-flight-1549.pdf"], "file_rank": 2, "chunk_rank": 9}, "hybrid": {"files": ["070-colgan-air-flight-3407.pdf", "098-air-france-flight-447.pdf", "060-northwest-airlines-flight-255.pdf", "122-asiana-airlines-flight-214.pdf", "056-american-eagle-flight-4184.pdf"], "file_rank": 2, "chunk_rank": 5}}}, {"n": 6, "question": "Which cue rose on the airspeed display while the Colgan crew wasn't watching?", "lesson": "Doğru rapor, cevap parçası çok geride", "kind": "detail", "expected": "070-colgan-air-flight-3407.pdf", "expected_page": 169, "expected_phrase": "rising position", "trace": "traces/q06.html", "max_score": 0.6483, "answer": null, "methods": {"dense": {"files": ["070-colgan-air-flight-3407.pdf", "098-air-france-flight-447.pdf", "056-american-eagle-flight-4184.pdf", "110-kegworth-air-disaster.pdf", "044-eastern-air-lines-flight-401.pdf"], "file_rank": 1, "chunk_rank": 56}, "bm25": {"files": ["070-colgan-air-flight-3407.pdf", "122-asiana-airlines-flight-214.pdf", "184-lion-air-flight-610.pdf", "183-comair-flight-5191.pdf", "060-northwest-airlines-flight-255.pdf"], "file_rank": 1, "chunk_rank": 4}, "hybrid": {"files": ["070-colgan-air-flight-3407.pdf", "184-lion-air-flight-610.pdf", "122-asiana-airlines-flight-214.pdf", "098-air-france-flight-447.pdf", "044-eastern-air-lines-flight-401.pdf"], "file_rank": 1, "chunk_rank": 15}}}, {"n": 7, "question": "At which lap joint did the Aloha 737 fuselage fail?", "lesson": "Kod gibi bir terim: S-10L", "kind": "detail", "expected": "013-aloha-airlines-flight-243.pdf", "expected_page": 79, "expected_phrase": "S-10L", "trace": "traces/q07.html", "max_score": 0.6647, "answer": null, "methods": {"dense": {"files": ["013-aloha-airlines-flight-243.pdf", "092-american-airlines-flight-191.pdf", "030-united-airlines-flight-585.pdf", "060-northwest-airlines-flight-255.pdf", "001-united-airlines-flight-811.pdf"], "file_rank": 1, "chunk_rank": 3}, "bm25": {"files": ["013-aloha-airlines-flight-243.pdf", "110-kegworth-air-disaster.pdf", "122-asiana-airlines-flight-214.pdf", "030-united-airlines-flight-585.pdf", "092-american-airlines-flight-191.pdf"], "file_rank": 1, "chunk_rank": 2}, "hybrid": {"files": ["013-aloha-airlines-flight-243.pdf", "185-southwest-airlines-flight-1380.pdf", "122-asiana-airlines-flight-214.pdf", "001-united-airlines-flight-811.pdf", "092-american-airlines-flight-191.pdf"], "file_rank": 1, "chunk_rank": 2}}}, {"n": 8, "question": "Which maintenance contractor failed to properly prepare the oxygen generators on ValuJet 592?", "lesson": "Cevap sayfasının fontu bozuk, ama ad raporun başka sayfalarında geçiyor", "kind": "detail", "expected": "087-valujet-flight-592.pdf", "expected_page": 151, "expected_phrase": "SabreTech", "trace": "traces/q08.html", "max_score": 0.7226, "answer": null, "methods": {"dense": {"files": ["087-valujet-flight-592.pdf", "007-british-airways-flight-5390.pdf", "092-american-airlines-flight-191.pdf", "013-aloha-airlines-flight-243.pdf", "137-germanwings-flight-9525.pdf"], "file_rank": 1, "chunk_rank": 1}, "bm25": {"files": ["087-valujet-flight-592.pdf", "002-american-airlines-flight-1420.pdf", "001-united-airlines-flight-811.pdf", "102-air-florida-flight-90.pdf", "007-british-airways-flight-5390.pdf"], "file_rank": 1, "chunk_rank": 1}, "hybrid": {"files": ["087-valujet-flight-592.pdf", "092-american-airlines-flight-191.pdf", "002-american-airlines-flight-1420.pdf", "007-british-airways-flight-5390.pdf", "001-united-airlines-flight-811.pdf"], "file_rank": 1, "chunk_rank": 1}}}, {"n": 9, "question": "Germanwings'te kaptan kokpite neden giremedi?", "lesson": "Türkçe soru, İngilizce rapor", "kind": "tr", "expected": "137-germanwings-flight-9525.pdf", "expected_page": 96, "expected_phrase": "forcible intrusion", "trace": "traces/q09.html", "max_score": 0.6095, "answer": null, "methods": {"dense": {"files": ["137-germanwings-flight-9525.pdf", "070-colgan-air-flight-3407.pdf", "102-air-florida-flight-90.pdf", "098-air-france-flight-447.pdf", "060-northwest-airlines-flight-255.pdf"], "file_rank": 1, "chunk_rank": 1}, "bm25": {"files": ["184-lion-air-flight-610.pdf", "044-eastern-air-lines-flight-401.pdf", "060-northwest-airlines-flight-255.pdf", "137-germanwings-flight-9525.pdf", "036-delta-air-lines-flight-191.pdf"], "file_rank": 4, "chunk_rank": 107}, "hybrid": {"files": ["137-germanwings-flight-9525.pdf", "184-lion-air-flight-610.pdf", "044-eastern-air-lines-flight-401.pdf", "060-northwest-airlines-flight-255.pdf", "036-delta-air-lines-flight-191.pdf"], "file_rank": 1, "chunk_rank": 5}}}, {"n": 10, "question": "747'nin kargo kapısı uçuş sırasında neden açıldı?", "lesson": "Türkçe soru, İngilizce rapor", "kind": "tr", "expected": "001-united-airlines-flight-811.pdf", "expected_page": 100, "expected_phrase": "faulty switch", "trace": "traces/q10.html", "max_score": 0.6609, "answer": null, "methods": {"dense": {"files": ["001-united-airlines-flight-811.pdf", "087-valujet-flight-592.pdf", "007-british-airways-flight-5390.pdf", "013-aloha-airlines-flight-243.pdf", "185-southwest-airlines-flight-1380.pdf"], "file_rank": 1, "chunk_rank": 2}, "bm25": {"files": ["001-united-airlines-flight-811.pdf", "005-alaska-airlines-flight-261.pdf", "036-delta-air-lines-flight-191.pdf", "013-aloha-airlines-flight-243.pdf", "087-valujet-flight-592.pdf"], "file_rank": 1, "chunk_rank": 31}, "hybrid": {"files": ["001-united-airlines-flight-811.pdf", "087-valujet-flight-592.pdf", "005-alaska-airlines-flight-261.pdf", "036-delta-air-lines-flight-191.pdf", "013-aloha-airlines-flight-243.pdf"], "file_rank": 1, "chunk_rank": 6}}}, {"n": 11, "question": "Why did Ethiopian Airlines Flight 302 crash after takeoff from Addis Ababa?", "lesson": "Tuzak: korpusta yok, Lion Air'e benziyor", "kind": "trap", "expected": null, "expected_page": null, "expected_phrase": "bulamadım", "trace": "traces/q11.html", "max_score": 0.5774, "answer": null, "methods": {"dense": {"files": ["184-lion-air-flight-610.pdf", "137-germanwings-flight-9525.pdf", "102-air-florida-flight-90.pdf", "056-american-eagle-flight-4184.pdf", "087-valujet-flight-592.pdf"], "file_rank": null, "chunk_rank": null}, "bm25": {"files": ["184-lion-air-flight-610.pdf", "183-comair-flight-5191.pdf", "102-air-florida-flight-90.pdf", "060-northwest-airlines-flight-255.pdf", "122-asiana-airlines-flight-214.pdf"], "file_rank": null, "chunk_rank": null}, "hybrid": {"files": ["184-lion-air-flight-610.pdf", "102-air-florida-flight-90.pdf", "122-asiana-airlines-flight-214.pdf", "183-comair-flight-5191.pdf", "036-delta-air-lines-flight-191.pdf"], "file_rank": null, "chunk_rank": null}}}, {"n": 12, "question": "Why did United Airlines Flight 232 lose all hydraulics over Iowa?", "lesson": "Tuzak: korpusta yok, rapor linki inmedi", "kind": "trap", "expected": null, "expected_page": null, "expected_phrase": "bulamadım", "trace": "traces/q12.html", "max_score": 0.6157, "answer": null, "methods": {"dense": {"files": ["070-colgan-air-flight-3407.pdf", "092-american-airlines-flight-191.pdf", "030-united-airlines-flight-585.pdf", "087-valujet-flight-592.pdf", "001-united-airlines-flight-811.pdf"], "file_rank": null, "chunk_rank": null}, "bm25": {"files": ["070-colgan-air-flight-3407.pdf", "185-southwest-airlines-flight-1380.pdf", "093-united-airlines-flight-173.pdf", "002-american-airlines-flight-1420.pdf", "056-american-eagle-flight-4184.pdf"], "file_rank": null, "chunk_rank": null}, "hybrid": {"files": ["070-colgan-air-flight-3407.pdf", "056-american-eagle-flight-4184.pdf", "001-united-airlines-flight-811.pdf", "093-united-airlines-flight-173.pdf", "092-american-airlines-flight-191.pdf"], "file_rank": null, "chunk_rank": null}}}], "generated_with_claude": false}</script>
+<script>
+const D = JSON.parse(document.getElementById("data").textContent);
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = n => n.toLocaleString("tr-TR");
+const R = Object.fromEntries(D.reports.map(r => [r.id + ".pdf", r]));
+const short = path => {
+  const r = R[path.split("/").pop()];
+  if (!r) return path;
+  return r.incident.split(" (")[0].split(" / ")[0].replace("Air Disaster", "").replace("air disaster", "").trim() + " · " + r.date.slice(0, 4);
+};
+
+const st = D.stats;
+const pages = st.reduce((a, r) => a + r.pages, 0);
+const emptyReports = st.filter(r => r.chars_raw === 0).length;
+const partial = st.filter(r => r.chars_raw > 0 && r.empty_raw >= 10);
+$("lede").textContent = `${D.corpus.reports} resmî uçak kazası raporu, ${fmt(pages)} sayfa, ${fmt(D.corpus.chunks)} parça. Framework yok: yükle, parçala, embed et, ara, cevapla. Raporlar sitedeki Air Crash Investigation indeksinden seçildi.`;
+if (!D.generated_with_claude) $("draft-flag").textContent = "TASLAK · Claude cevapları henüz eklenmedi";
+
+$("pipe").innerHTML = [
+  [st.length, "rapor indi"],
+  [fmt(pages), "sayfa, " + emptyReports + " rapor taranmış"],
+  [fmt(D.corpus.chunks), `parça, ${D.corpus.chunk_tokens} token, ${D.corpus.overlap_tokens} örtüşme`],
+  [D.corpus.dim, `boyut, ${D.corpus.embed_model}, yerel`],
+  ["top 8", "kosinüs, BM25 ya da ikisi"],
+  [D.generated_with_claude ? "Claude" : "—", D.generated_with_claude ? "[n] atıflı cevap" : "cevap adımı bu taslakta yok"],
+].map(([b, s], i) => `<div class="${i === 5 && !D.generated_with_claude ? "off" : ""}"><b>${b}</b><span>${s}</span></div>`).join("");
+
+const recovered = st.reduce((a, r) => a + (r.chars_ocr - r.chars_raw), 0);
+$("ocr-callout").innerHTML = [
+  [`${emptyReports} / ${st.length}`, "raporun OCR'sız tek karakteri yok"],
+  [partial.map(r => r.empty_raw).reduce((a, b) => a + b, 0), `sayfa, metni olan raporların içinde taranmış (${partial.map(r => short(r.id + ".pdf").split(" · ")[0]).join(", ")})`],
+  [(recovered / 1e6).toFixed(1) + " M", "karakter OCR ile geri geldi"],
+  ["24 → 44", "otomatik 46 soruda hit@1, OCR'sız ve OCR'lı"],
+].map(([b, s]) => `<div class="stat"><b>${b}</b><span>${esc(s)}</span></div>`).join("");
+
+const maxC = Math.max(...st.map(r => r.chars_ocr));
+const scale = 800000;
+const sorted = [...st].sort((a, b) => R[a.id + ".pdf"].date.localeCompare(R[b.id + ".pdf"].date));
+$("bars").innerHTML = sorted.map(r => {
+  const n = short(r.id + ".pdf").split(" · ");
+  return `<div class="bar-row"><span class="name" title="${esc(n[0])}">${esc(n[0])} <small>${n[1]}</small></span>
+    <span class="track"><i class="ocr" style="width:${r.chars_ocr / scale * 100}%"></i><i class="raw" style="width:${r.chars_raw / scale * 100}%"></i></span>
+    <span class="v">${r.chars_raw === 0 ? "0 → " : ""}${Math.round(r.chars_ocr / 1000)}</span></div>`;
+}).join("");
+$("ticks").innerHTML = [0, 200000, 400000, 600000, 800000].map(t => `<span style="left:${t / scale * 100}%">${t / 1000}</span>`).join("");
+
+const n = D.results.n;
+$("n-q").textContent = n + " soru";
+const M = [["dense", "Dense (bge-m3, kosinüs)"], ["bm25", "BM25 (kelime)"], ["hybrid", "Hibrit (RRF)"]];
+const cols = [["file@1", "Dosya @1"], ["chunk@5", "Parça @5"], ["chunk@8", "Parça @8"]];
+const best = Object.fromEntries(cols.map(([k]) => [k, Math.max(...M.map(([m]) => D.results[m][k]))]));
+$("results").innerHTML = `<thead><tr><th>Yöntem</th>${cols.map(([, l]) => `<th class="n">${l}</th>`).join("")}</tr></thead><tbody>` +
+  M.map(([m, l]) => `<tr><td>${l}</td>${cols.map(([k]) => `<td class="n ${D.results[m][k] === best[k] ? "best" : ""}">${D.results[m][k]} / ${n}</td>`).join("")}</tr>`).join("") + "</tbody>";
+
+const rankCls = r => r == null ? "r-bad" : r <= 5 ? "r-ok" : r <= 8 ? "r-mid" : "r-bad";
+const rk = r => r == null ? "—" : r;
+const kindChip = g => g.kind === "trap" ? `<span class="chip trap">tuzak</span>` : g.kind === "tr" ? `<span class="chip tr">Türkçe</span>` : `<span class="chip">ayrıntı</span>`;
+$("cards").innerHTML = D.gallery.map(g => {
+  const exp = g.expected
+    ? `Beklenen: <b>${esc(short(g.expected))}</b>, s. ${g.expected_page}, ifade <code>${esc(g.expected_phrase)}</code>`
+    : `Korpusta yok. Dense'in ilk sıraya koyduğu: <b>${esc(short(g.methods.dense.files[0]))}</b>`;
+  const ranks = g.expected
+    ? `<div class="ranks"><div class="h"></div>${M.map(([m]) => `<div class="h">${m === "hybrid" ? "hibrit" : m}</div>`).join("")}
+        <div class="h">dosya</div>${M.map(([m]) => `<div class="v ${rankCls(g.methods[m].file_rank)}">${rk(g.methods[m].file_rank)}</div>`).join("")}
+        <div class="h">parça</div>${M.map(([m]) => `<div class="v ${rankCls(g.methods[m].chunk_rank)}">${rk(g.methods[m].chunk_rank)}</div>`).join("")}</div>`
+    : `<p class="exp">En yüksek kosinüs skoru <span class="mono">${g.max_score.toFixed(3)}</span>. Bir eşik bu soruyu ayırabilir mi? Bölüm 5.</p>`;
+  return `<article class="card">
+    <div class="top"><span class="label mono">S${String(g.n).padStart(2, "0")}</span>${kindChip(g)}</div>
+    <p class="q">${esc(g.question)}</p>
+    <p class="lesson">${esc(g.lesson)}</p>
+    <p class="exp">${exp}</p>
+    ${ranks}
+    ${g.answer ? `<p class="answer">${esc(g.answer)}</p>` : ""}
+    <a class="open" href="${g.trace}">İz sayfasını aç →</a>
+  </article>`;
+}).join("");
+
+// eşik şeridi
+const S = D.scores, W = 640, X0 = 0.50, X1 = 0.73, padL = 92, padR = 16;
+const X = v => padL + (v - X0) / (X1 - X0) * (W - padL - padR);
+const rows = [["gerçek", S.filter(s => s.kind !== "trap"), 48], ["tuzak", S.filter(s => s.kind === "trap"), 96]];
+const ns = "http://www.w3.org/2000/svg";
+const el = (t, a, p) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); p.appendChild(e); return e; };
+const svgEl = $("strip");
+for (let v = 0.50; v <= 0.7301; v += 0.05) {
+  el("line", { x1: X(v), x2: X(v), y1: 20, y2: 118, style: "stroke:var(--rule)" }, svgEl);
+  el("text", { x: X(v), y: 138, "text-anchor": "middle", style: "fill:var(--muted);font:11px var(--mono)" }, svgEl).textContent = v.toFixed(2);
+}
+rows.forEach(([name, list, y]) => {
+  el("text", { x: 0, y: y + 4, style: "fill:var(--ink2);font:600 12px var(--body)" }, svgEl).textContent = `${name} (${list.length})`;
+  list.forEach((s, i) => {
+    const c = el("circle", { cx: X(s.max_score), cy: y + ((i * 7) % 17) - 8, r: 4.5,
+      style: `fill:${name === "tuzak" ? "var(--accent)" : "var(--ink2)"};fill-opacity:.75` }, svgEl);
+    el("title", {}, c).textContent = `${s.question}\n${s.max_score.toFixed(3)} → ${short(s.top_file)}`;
+  });
+});
+const cut = el("line", { y1: 14, y2: 122, style: "stroke:var(--accent);stroke-width:2;stroke-dasharray:4 3" }, svgEl);
+function update() {
+  const t = +$("cut").value;
+  cut.setAttribute("x1", X(t)); cut.setAttribute("x2", X(t));
+  const real = S.filter(s => s.kind !== "trap"), traps = S.filter(s => s.kind === "trap");
+  const caught = traps.filter(s => s.max_score < t).length, lost = real.filter(s => s.max_score < t).length;
+  $("readout").innerHTML = `Eşik <b>${t.toFixed(3)}</b>: tuzakların <b>${caught} / ${traps.length}</b>'i "bulamadım" olur, ama gerçek soruların <b>${lost} / ${real.length}</b>'i de cevapsız kalır.`;
+}
+$("cut").addEventListener("input", update); update();
+
+$("refs").innerHTML = D.reports.map(r => `<li><a href="${esc(r.report_url)}">${esc(r.incident)}</a> <span class="muted">${esc(r.agency)}, ${esc(r.report_id || "")}</span></li>`).join("");
+$("foot").textContent = `Embedding ${D.corpus.embed_model}, parça ${D.corpus.chunk_tokens} token. Sorular ve beklenen sayfalar data/aci/eval-hand.jsonl.`;
+</script>
