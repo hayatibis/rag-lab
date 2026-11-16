@@ -25,8 +25,10 @@ from rag.jsonl import read_jsonl  # noqa: E402
 from rag.search import Index  # noqa: E402
 
 TOKEN = re.compile(r"[a-z0-9]+")
-K1, B = 1.5, 0.75  # Robertson ve Zaragoza (2009) önerdiği aralığın ortası
-RRF_K = 60  # Cormack ve ark. (2009)
+# Robertson ve Zaragoza (2009): "A common combination would be b = 0.5 and k1 = 2. (However, many
+# experiments suggest a somewhat lower value of k1 and a somewhat higher value of b.)"
+K1, B = 1.5, 0.75
+RRF_K = 60  # Cormack, Clarke ve Büttcher (2009): pilot denemede sabitlenmiş, sonra değiştirilmemiş
 
 
 def tokenize(text: str) -> list[str]:
