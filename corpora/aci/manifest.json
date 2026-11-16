@@ -1,0 +1,227 @@
+[
+ {
+  "id": "001-united-airlines-flight-811",
+  "incident": "United Airlines Flight 811",
+  "date": "1989-02-24",
+  "agency": "NTSB",
+  "report_id": "NTSB/AAR-92/02",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR9202.pdf",
+  "cause": "The forward cargo door opened in flight because of faulty wiring and a deficient door latch design."
+ },
+ {
+  "id": "013-aloha-airlines-flight-243",
+  "incident": "Aloha Airlines Flight 243",
+  "date": "1988-04-28",
+  "agency": "NTSB",
+  "report_id": "NTSB/AAR-89/03",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR8903.pdf",
+  "cause": "Fatigue cracking and bond failure in the fuselage lap joints went undetected because the airline's maintenance programme did not catch them."
+ },
+ {
+  "id": "044-eastern-air-lines-flight-401",
+  "incident": "Eastern Air Lines Flight 401",
+  "date": "1972-12-29",
+  "agency": "NTSB",
+  "report_id": "NTSB/AAR-73/14",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR7314.pdf",
+  "cause": "The crew focused on a burned-out indicator bulb, stopped monitoring altitude and did not notice the descent."
+ },
+ {
+  "id": "036-delta-air-lines-flight-191",
+  "incident": "Delta Air Lines Flight 191",
+  "date": "1985-08-02",
+  "agency": "NTSB",
+  "report_id": "NTSB/AAR-86/05",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR8605.pdf",
+  "cause": "The crew flew into a thunderstorm and met a microburst wind shear; training, procedures and hazard information were lacking."
+ },
+ {
+  "id": "092-american-airlines-flight-191",
+  "incident": "American Airlines Flight 191",
+  "date": "1979-05-25",
+  "agency": "NTSB",
+  "report_id": "NTSB-AAR-79-17",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR7917.pdf",
+  "cause": "The engine pylon was damaged by an improper maintenance procedure that used a forklift, and the engine separation cut hydraulics and slat warnings."
+ },
+ {
+  "id": "093-united-airlines-flight-173",
+  "incident": "United Airlines Flight 173",
+  "date": "1978-12-28",
+  "agency": "NTSB",
+  "report_id": "NTSB-AAR-79-7",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR7907.pdf",
+  "cause": "It ran out of fuel: the captain focused on the gear and did not heed the crew's fuel warnings."
+ },
+ {
+  "id": "085-united-airlines-flight-232",
+  "incident": "United Airlines Flight 232",
+  "date": "1989-07-19",
+  "agency": "NTSB",
+  "report_id": "NTSB/AAR-90/06",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR9006.pdf",
+  "cause": "A fatigue crack in the engine's fan disk, from a defect in the titanium, broke it apart and cut all three hydraulic systems."
+ },
+ {
+  "id": "102-air-florida-flight-90",
+  "incident": "Air Florida Flight 90",
+  "date": "1982-01-13",
+  "agency": "NTSB",
+  "report_id": "NTSB-AAR-82-8",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR8208.pdf",
+  "cause": "Ice on the wings and the crew's failure to use engine anti-ice gave wrong thrust readings, and the takeoff was continued."
+ },
+ {
+  "id": "060-northwest-airlines-flight-255",
+  "incident": "Northwest Airlines Flight 255",
+  "date": "1987-08-16",
+  "agency": "NTSB",
+  "report_id": "NTSB/AAR-88/05 · DCA87MA046",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR8805.pdf",
+  "cause": "The NTSB found that the crew did not set the flaps and slats for takeoff, and the takeoff warning system did not sound."
+ },
+ {
+  "id": "002-american-airlines-flight-1420",
+  "incident": "American Airlines Flight 1420",
+  "date": "1999-06-01",
+  "agency": "NTSB",
+  "report_id": "NTSB/AAR-01/02",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR0102.pdf",
+  "cause": "The crew continued the approach in severe weather and the spoilers did not deploy after touchdown, so the aircraft could not stop."
+ },
+ {
+  "id": "005-alaska-airlines-flight-261",
+  "incident": "Alaska Airlines Flight 261",
+  "date": "2000-01-31",
+  "agency": "NTSB",
+  "report_id": "NTSB/AAR-02/01",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR0201.pdf",
+  "cause": "The horizontal stabilizer trim jackscrew threads wore away because of inadequate maintenance and lubrication, and the assembly failed."
+ },
+ {
+  "id": "056-american-eagle-flight-4184",
+  "incident": "American Eagle Flight 4184",
+  "date": "1994-10-31",
+  "agency": "NTSB",
+  "report_id": "NTSB/AAR-96/01 · DCA95MA001",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR9601.pdf",
+  "cause": "The NTSB found that freezing rain created an ice ridge beyond the de-icing boots, which caused the ailerons to snap and the autopilot to disconnect; ATR and the French authorities had not told operators enough about the risk."
+ },
+ {
+  "id": "070-colgan-air-flight-3407",
+  "incident": "Colgan Air Flight 3407",
+  "date": "2009-02-12",
+  "agency": "NTSB",
+  "report_id": "NTSB/AAR-10/01 · DCA09MA027",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR1001.pdf",
+  "cause": "The NTSB found that the captain responded incorrectly to the stick shaker stall warning, and that the crew had not monitored airspeed during the approach; fatigue and Colgan's procedures contributed."
+ },
+ {
+  "id": "071-us-airways-flight-1549",
+  "incident": "US Airways Flight 1549",
+  "date": "2009-01-15",
+  "agency": "NTSB",
+  "report_id": "NTSB/AAR-10/03 · DCA09MA026",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR1003.pdf",
+  "cause": "The NTSB found that a bird strike by Canada geese damaged both engines beyond their ability to run; the crew's decisions and training contributed to the survival of everyone aboard."
+ },
+ {
+  "id": "122-asiana-airlines-flight-214",
+  "incident": "Asiana Airlines Flight 214",
+  "date": "2013-07-06",
+  "agency": "NTSB",
+  "report_id": "NTSB/AAR-14/01",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR1401.pdf",
+  "cause": "The NTSB found that the crew mismanaged the approach and the autothrottle mode, and did not monitor airspeed, so the aircraft fell below the target speed and struck the seawall."
+ },
+ {
+  "id": "183-comair-flight-5191",
+  "incident": "Comair Flight 5191",
+  "date": "2006-08-27",
+  "agency": "NTSB",
+  "report_id": "NTSB/AAR-07/05",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR0705.pdf",
+  "cause": "The crew did not use available cues to confirm the runway before takeoff and chatted during taxi; the FAA's lack of runway-crossing clearance rules contributed."
+ },
+ {
+  "id": "185-southwest-airlines-flight-1380",
+  "incident": "Southwest Airlines Flight 1380",
+  "date": "2018-04-17",
+  "agency": "NTSB",
+  "report_id": "NTSB/AAR-19/03",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR1903.pdf",
+  "cause": "A fatigue crack in a fan blade dovetail let the blade separate and strike the engine inlet, breaking a window."
+ },
+ {
+  "id": "087-valujet-flight-592",
+  "incident": "ValuJet Flight 592",
+  "date": "1996-05-11",
+  "agency": "NTSB",
+  "report_id": "NTSB/AAR-97/06 · DCA96MA054",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR9706.pdf",
+  "cause": "Mislabelled oxygen generators in the cargo hold set off a fire that the aircraft was not equipped to detect or put out."
+ },
+ {
+  "id": "030-united-airlines-flight-585",
+  "incident": "United Airlines Flight 585 / USAir Flight 427 / Eastwind Airlines Flight 517",
+  "date": "1991-03-03 (UA585); 1994-09-08 (USAir 427); 1996-06-09 (Eastwind 517)",
+  "agency": "NTSB",
+  "report_id": "UA585: NTSB/AAR-01/01",
+  "report_url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/AAR0101.pdf",
+  "cause": "The 737 rudder power control unit could jam or move opposite to the pilot's command (rudder hardover), which was found to cause the crashes."
+ },
+ {
+  "id": "003-swissair-flight-111",
+  "incident": "Swissair Flight 111",
+  "date": "1998-09-02",
+  "agency": "TSB (Canada)",
+  "report_id": "A98H0003",
+  "report_url": "https://www.tsb.gc.ca/sites/default/files/rapports-reports/aviation/A98H0003/eng/a98h0003.pdf",
+  "cause": "Flammable insulation materials let an in-flight fire spread beyond the crew's control, and the fire damaged the aircraft's systems."
+ },
+ {
+  "id": "098-air-france-flight-447",
+  "incident": "Air France Flight 447",
+  "date": "2009-06-01",
+  "agency": "BEA (France)",
+  "report_id": "f-cp090601",
+  "report_url": "https://bea.aero/fileadmin/documents/docspa/2009/f-cp090601.en/pdf/f-cp090601.en.pdf",
+  "cause": "After the pitot probes iced up and the autopilot disconnected, the crew did not recognise the stall and kept the nose up."
+ },
+ {
+  "id": "007-british-airways-flight-5390",
+  "incident": "British Airways Flight 5390",
+  "date": "1990-06-10",
+  "agency": "AAIB (UK)",
+  "report_id": "AAIB 1/1992",
+  "report_url": "https://assets.publishing.service.gov.uk/media/5422faa7e5274a131400078d/1-1992_G-BJRT_2_.pdf",
+  "cause": "The windscreen was fitted with screws that were too small and too short, and could not hold against cabin pressure."
+ },
+ {
+  "id": "110-kegworth-air-disaster",
+  "incident": "Kegworth air disaster (British Midland Flight 092)",
+  "date": "1989-01-08",
+  "agency": "AAIB (UK)",
+  "report_id": "4/1990",
+  "report_url": "https://assets.publishing.service.gov.uk/media/5422fefeed915d13710009ed/4-1990_G-OBME.pdf",
+  "cause": "The crew shut down the wrong engine; the damaged one then failed, and a fan blade fatigue fault was the original cause."
+ },
+ {
+  "id": "137-germanwings-flight-9525",
+  "incident": "Germanwings Flight 9525",
+  "date": "2015-03-24",
+  "agency": "BEA (France)",
+  "report_id": "BEA2015-0125",
+  "report_url": "https://bea.aero/fileadmin/uploads/tx_elydbrapports/BEA2015-0125.en-LR.pdf",
+  "cause": "The BEA concluded the co-pilot deliberately flew the aircraft into the terrain, while suffering from a mental disorder; the captain was locked out of the cockpit."
+ },
+ {
+  "id": "184-lion-air-flight-610",
+  "incident": "Lion Air Flight 610",
+  "date": "2018-10-29",
+  "agency": "KNKT (Indonesia)",
+  "report_id": "KNKT.18.10.35.04",
+  "report_url": "https://knkt.go.id/Repo/Files/Laporan/Penerbangan/2018/KNKT.18.10.33.04-Final-Report.pdf",
+  "cause": "The MAX's flight control software (MCAS) relied on one angle-of-attack sensor that had been wrongly calibrated, and crew guidance and maintenance gaps contributed."
+ }
+]

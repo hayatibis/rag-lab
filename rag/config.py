@@ -5,6 +5,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.environ.get("RAG_DATA", PROJECT_ROOT / "data"))
 SOURCE_ROOT = Path(os.environ.get("RAG_SOURCE", PROJECT_ROOT / "sample_docs"))
+EVAL_PATH = Path(os.environ.get("RAG_EVAL", PROJECT_ROOT / "eval.jsonl"))
 
 INCLUDE_SUFFIXES = {".md", ".html", ".pdf", ".docx"}
 EXCLUDE_DIRS = (".git", "archive/old")

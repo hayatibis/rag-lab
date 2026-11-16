@@ -9,7 +9,7 @@ from rag.embed import OllamaError
 from rag.jsonl import read_jsonl
 from rag.search import Hit, Index, IndexMissing, search
 
-EVAL_PATH = config.PROJECT_ROOT / "eval.jsonl"
+EVAL_PATH = config.EVAL_PATH
 
 
 def score_case(case: dict, hits: list[Hit], answer_text: str | None) -> dict:

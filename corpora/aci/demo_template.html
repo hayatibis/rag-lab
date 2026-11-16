@@ -1,0 +1,289 @@
+<title>Kaza Raporları RAG</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: tek sütunlu teknik rapor; bölümler rapor numaralandırmasıyla (1, 2, 3…) çünkü sıra boru hattının sırası. */
+:root {
+  --paper: #f6f7f9; --surface: #ffffff; --ink: #18202b; --ink2: #3d4757; --muted: #6b7584;
+  --rule: #dde1e7; --track: #e9ecf0;
+  --accent: #e2590f; --accent-soft: #fbe3d4; --accent-ink: #a53d06;
+  --good: #1f7a4d; --bad: #b3261e;
+  --display: "Public Sans", "Helvetica Neue", Arial, sans-serif;
+  --body: "Public Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f141b; --surface: #161d27; --ink: #e7ebf0; --ink2: #b9c1cc; --muted: #8590a0;
+    --rule: #263040; --track: #222b38;
+    --accent: #f27330; --accent-soft: #3a2316; --accent-ink: #ffb38a;
+    --good: #5cc28f; --bad: #f2867f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f141b; --surface: #161d27; --ink: #e7ebf0; --ink2: #b9c1cc; --muted: #8590a0;
+  --rule: #263040; --track: #222b38;
+  --accent: #f27330; --accent-soft: #3a2316; --accent-ink: #ffb38a;
+  --good: #5cc28f; --bad: #f2867f; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font: 15.5px/1.6 var(--body); }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.prose { max-width: 66ch; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.2; margin: 0; }
+h1 { font-size: clamp(28px, 5vw, 40px); font-weight: 700; letter-spacing: -0.015em; }
+h2 { font-size: 22px; font-weight: 650; display: flex; gap: 12px; align-items: baseline; }
+h2 .no { font-family: var(--mono); font-size: 14px; color: var(--accent-ink); font-weight: 500; }
+h3 { font-size: 16px; font-weight: 600; }
+p { margin: 0; }
+a { color: var(--accent-ink); text-underline-offset: 2px; }
+a:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.mono, .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.muted { color: var(--muted); }
+header { display: grid; gap: 14px; padding-bottom: 28px; border-bottom: 2px solid var(--ink); }
+.draft { justify-self: start; font-family: var(--mono); font-size: 12px; color: var(--accent-ink);
+  background: var(--accent-soft); padding: 3px 9px; border-radius: 4px; }
+.lede { font-size: 17px; color: var(--ink2); }
+section { display: grid; gap: 16px; padding-block: 40px 8px; }
+section + section { border-top: 1px solid var(--rule); }
+
+/* boru hattı */
+.pipe { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1px;
+  background: var(--rule); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.pipe div { background: var(--surface); padding: 12px 14px; display: grid; gap: 2px; align-content: start; }
+.pipe b { font-family: var(--mono); font-size: 20px; font-weight: 500; }
+.pipe span { font-size: 13px; color: var(--ink2); }
+.pipe .off b { color: var(--muted); }
+
+/* OCR grafiği */
+.bars { display: grid; gap: 5px; }
+.bar-row { display: grid; grid-template-columns: minmax(0, 210px) minmax(0, 1fr) 74px; gap: 10px; align-items: center; font-size: 13px; }
+.bar-row .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-row .name small { color: var(--muted); font-family: var(--mono); font-size: 11.5px; }
+.track { position: relative; height: 12px; background: var(--track); border-radius: 2px; }
+.track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; }
+.track .ocr { background: var(--accent); }
+.track .raw { background: var(--ink); }
+.bar-row .v { text-align: right; font-family: var(--mono); font-size: 12px; color: var(--ink2); }
+.axis { display: grid; grid-template-columns: minmax(0, 210px) minmax(0, 1fr) 74px; gap: 10px; font-size: 11.5px; color: var(--muted); font-family: var(--mono); }
+.axis .ticks { position: relative; height: 16px; }
+.axis .ticks span { position: absolute; transform: translateX(-50%); }
+.axis .ticks span:first-child { transform: none; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink2); }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
+.callout { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.stat { border-left: 3px solid var(--accent); padding: 2px 0 2px 12px; display: grid; gap: 2px; }
+.stat b { font-family: var(--mono); font-size: 24px; font-weight: 500; }
+.stat span { font-size: 13px; color: var(--ink2); }
+
+/* tablolar */
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+td.best { color: var(--accent-ink); font-weight: 600; }
+
+/* soru kartları */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.card .top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chip { font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border-radius: 3px; border: 1px solid var(--rule); color: var(--ink2); }
+.chip.trap { border-color: var(--accent); color: var(--accent-ink); }
+.chip.tr { border-color: var(--ink2); }
+.card .q { font-size: 16px; font-weight: 600; line-height: 1.4; }
+.card .lesson { font-size: 14px; color: var(--ink2); }
+.card .exp { font-size: 13px; color: var(--muted); }
+.card .exp code { font-family: var(--mono); font-size: 12.5px; color: var(--ink); background: var(--track); padding: 0 4px; border-radius: 3px; }
+.ranks { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); font-size: 13px; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+.ranks > div { padding: 5px 8px; border-bottom: 1px solid var(--rule); }
+.ranks > div:nth-last-child(-n+4) { border-bottom: 0; }
+.ranks .h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; background: var(--paper); }
+.ranks .v { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.r-ok { color: var(--good); } .r-mid { color: var(--ink); } .r-bad { color: var(--bad); }
+.card .open { justify-self: start; font-size: 14px; font-weight: 600; }
+.card .answer { font-size: 14px; border-left: 3px solid var(--rule); padding-left: 10px; color: var(--ink2); }
+
+/* eşik */
+.threshold { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 16px; display: grid; gap: 12px; }
+.threshold svg { width: 100%; height: auto; display: block; }
+.threshold input[type=range] { width: 100%; accent-color: var(--accent); }
+.readout { font-size: 15px; }
+.readout b { font-family: var(--mono); font-weight: 500; }
+
+footer { padding-top: 40px; display: grid; gap: 14px; font-size: 13.5px; color: var(--ink2); }
+footer ol { margin: 0; padding-left: 20px; display: grid; gap: 3px; columns: 2 320px; }
+footer li { break-inside: avoid; }
+@media (max-width: 560px) {
+  .bar-row, .axis { grid-template-columns: minmax(0, 120px) minmax(0, 1fr) 56px; gap: 8px; }
+}
+@media (prefers-reduced-motion: no-preference) { .track i { transition: width .4s ease; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="draft" id="draft-flag">TASLAK</span>
+    <h1>Kaza raporları üzerinde RAG</h1>
+    <p class="lede prose" id="lede"></p>
+    <p class="prose muted">Bu sayfa canlı değil: her soru <a href="https://github.com/hayatibis/rag-lab">rag-lab</a> ile bir kez çalıştırıldı ve sonuçları buraya kondu. Aynı adımları kendi makinende <span class="mono">corpora/aci/</span> altındaki scriptlerle tekrarlayabilirsin.</p>
+  </header>
+
+  <section>
+    <h2><span class="no">1</span>Boru hattı</h2>
+    <div class="pipe" id="pipe"></div>
+  </section>
+
+  <section>
+    <h2><span class="no">2</span>OCR olmadan raporların yarısı yok</h2>
+    <p class="prose">Eski NTSB ve AAIB raporları taranmış görüntü. PDF okuyucu bunlardan tek karakter çıkaramıyor, hata da vermiyor: rapor sessizce indeksin dışında kalıyor. Bazı yeni raporların ekleri de taranmış.</p>
+    <div class="callout" id="ocr-callout"></div>
+    <div class="legend"><span><i class="sw" style="background:var(--ink)"></i>OCR'sız çıkan metin</span><span><i class="sw" style="background:var(--accent)"></i>OCR'dan sonra</span></div>
+    <div class="bars" id="bars"></div>
+    <div class="axis"><span></span><div class="ticks" id="ticks"></div><span>bin kar.</span></div>
+  </section>
+
+  <section>
+    <h2><span class="no">3</span>Üç arama, aynı sorular</h2>
+    <p class="prose">Rapor başına iki soru ve beş Türkçe soru, toplam <span id="n-q"></span>. <b>Dosya</b> doğru raporun ilk sırada gelip gelmediğini ölçer. <b>Parça</b> daha sıkıdır: ilk k parçadan biri doğru rapordan gelmeli ve cevabın geçtiği ifadeyi içermeli. Dosya düzeyinde hepsi iyi görünüyor; fark parça düzeyinde çıkıyor.</p>
+    <div class="scroll"><table id="results"></table></div>
+  </section>
+
+  <section>
+    <h2><span class="no">4</span>On iki soru, her adımıyla</h2>
+    <p class="prose">Her kartta üç yöntemin sıraları var: dosya / parça. Yeşil ilk 5, kırmızı ilk 8'in dışı. <b>İz sayfasını aç</b> o sorunun yolculuğunu gösterir: 1024 boyutlu vektör, tüm parçaların skor dağılımı, anlam haritası ve seçilen parçaların tam metni.</p>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section>
+    <h2><span class="no">5</span>"Bulamadım" demek için eşik yetmiyor</h2>
+    <p class="prose">Tuzak sorular korpusta olmayan ama korpustakilere benzeyen kazaları soruyor. Arama yine de en yakın parçayı getiriyor. En yüksek kosinüs skoruna bir eşik koyup altında kalanları "bulamadım" saymak ilk akla gelen çözüm. Eşiği kaydırıp dene.</p>
+    <div class="threshold">
+      <svg id="strip" viewBox="0 0 640 150" role="img" aria-label="Gerçek ve tuzak soruların en yüksek kosinüs skorları"></svg>
+      <label class="label" for="cut">Eşik</label>
+      <input id="cut" type="range" min="0.50" max="0.73" step="0.005" value="0.58">
+      <p class="readout" id="readout" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <footer>
+    <p><b>Raporlar.</b> Her biri ilgili kurumun resmî kaza raporu. NTSB raporları ABD kamu malıdır; diğer kurumların raporlarından yalnızca kısa alıntılar gösterilir. Raporların hiçbiri repoda değil, <span class="mono">fetch.py</span> kaynağından indirir.</p>
+    <ol id="refs"></ol>
+    <p class="muted" id="foot"></p>
+  </footer>
+</div>
+
+<script type="application/json" id="data">/*__DEMO__*/null</script>
+<script>
+const D = JSON.parse(document.getElementById("data").textContent);
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = n => n.toLocaleString("tr-TR");
+const R = Object.fromEntries(D.reports.map(r => [r.id + ".pdf", r]));
+const short = path => {
+  const r = R[path.split("/").pop()];
+  if (!r) return path;
+  return r.incident.split(" (")[0].split(" / ")[0].replace("Air Disaster", "").replace("air disaster", "").trim() + " · " + r.date.slice(0, 4);
+};
+
+const st = D.stats;
+const pages = st.reduce((a, r) => a + r.pages, 0);
+const emptyReports = st.filter(r => r.chars_raw === 0).length;
+const partial = st.filter(r => r.chars_raw > 0 && r.empty_raw >= 10);
+$("lede").textContent = `${D.corpus.reports} resmî uçak kazası raporu, ${fmt(pages)} sayfa, ${fmt(D.corpus.chunks)} parça. Framework yok: yükle, parçala, embed et, ara, cevapla. Raporlar sitedeki Air Crash Investigation indeksinden seçildi.`;
+if (!D.generated_with_claude) $("draft-flag").textContent = "TASLAK · Claude cevapları henüz eklenmedi";
+
+$("pipe").innerHTML = [
+  [st.length, "rapor indi"],
+  [fmt(pages), "sayfa, " + emptyReports + " rapor taranmış"],
+  [fmt(D.corpus.chunks), `parça, ${D.corpus.chunk_tokens} token, ${D.corpus.overlap_tokens} örtüşme`],
+  [D.corpus.dim, `boyut, ${D.corpus.embed_model}, yerel`],
+  ["top 8", "kosinüs, BM25 ya da ikisi"],
+  [D.generated_with_claude ? "Claude" : "—", D.generated_with_claude ? "[n] atıflı cevap" : "cevap adımı bu taslakta yok"],
+].map(([b, s], i) => `<div class="${i === 5 && !D.generated_with_claude ? "off" : ""}"><b>${b}</b><span>${s}</span></div>`).join("");
+
+const recovered = st.reduce((a, r) => a + (r.chars_ocr - r.chars_raw), 0);
+$("ocr-callout").innerHTML = [
+  [`${emptyReports} / ${st.length}`, "raporun OCR'sız tek karakteri yok"],
+  [partial.map(r => r.empty_raw).reduce((a, b) => a + b, 0), `sayfa, metni olan raporların içinde taranmış (${partial.map(r => short(r.id + ".pdf").split(" · ")[0]).join(", ")})`],
+  [(recovered / 1e6).toFixed(1) + " M", "karakter OCR ile geri geldi"],
+  ["24 → 44", "otomatik 46 soruda hit@1, OCR'sız ve OCR'lı"],
+].map(([b, s]) => `<div class="stat"><b>${b}</b><span>${esc(s)}</span></div>`).join("");
+
+const maxC = Math.max(...st.map(r => r.chars_ocr));
+const scale = 800000;
+const sorted = [...st].sort((a, b) => R[a.id + ".pdf"].date.localeCompare(R[b.id + ".pdf"].date));
+$("bars").innerHTML = sorted.map(r => {
+  const n = short(r.id + ".pdf").split(" · ");
+  return `<div class="bar-row"><span class="name" title="${esc(n[0])}">${esc(n[0])} <small>${n[1]}</small></span>
+    <span class="track"><i class="ocr" style="width:${r.chars_ocr / scale * 100}%"></i><i class="raw" style="width:${r.chars_raw / scale * 100}%"></i></span>
+    <span class="v">${r.chars_raw === 0 ? "0 → " : ""}${Math.round(r.chars_ocr / 1000)}</span></div>`;
+}).join("");
+$("ticks").innerHTML = [0, 200000, 400000, 600000, 800000].map(t => `<span style="left:${t / scale * 100}%">${t / 1000}</span>`).join("");
+
+const n = D.results.n;
+$("n-q").textContent = n + " soru";
+const M = [["dense", "Dense (bge-m3, kosinüs)"], ["bm25", "BM25 (kelime)"], ["hybrid", "Hibrit (RRF)"]];
+const cols = [["file@1", "Dosya @1"], ["chunk@5", "Parça @5"], ["chunk@8", "Parça @8"]];
+const best = Object.fromEntries(cols.map(([k]) => [k, Math.max(...M.map(([m]) => D.results[m][k]))]));
+$("results").innerHTML = `<thead><tr><th>Yöntem</th>${cols.map(([, l]) => `<th class="n">${l}</th>`).join("")}</tr></thead><tbody>` +
+  M.map(([m, l]) => `<tr><td>${l}</td>${cols.map(([k]) => `<td class="n ${D.results[m][k] === best[k] ? "best" : ""}">${D.results[m][k]} / ${n}</td>`).join("")}</tr>`).join("") + "</tbody>";
+
+const rankCls = r => r == null ? "r-bad" : r <= 5 ? "r-ok" : r <= 8 ? "r-mid" : "r-bad";
+const rk = r => r == null ? "—" : r;
+const kindChip = g => g.kind === "trap" ? `<span class="chip trap">tuzak</span>` : g.kind === "tr" ? `<span class="chip tr">Türkçe</span>` : `<span class="chip">ayrıntı</span>`;
+$("cards").innerHTML = D.gallery.map(g => {
+  const exp = g.expected
+    ? `Beklenen: <b>${esc(short(g.expected))}</b>, s. ${g.expected_page}, ifade <code>${esc(g.expected_phrase)}</code>`
+    : `Korpusta yok. Dense'in ilk sıraya koyduğu: <b>${esc(short(g.methods.dense.files[0]))}</b>`;
+  const ranks = g.expected
+    ? `<div class="ranks"><div class="h"></div>${M.map(([m]) => `<div class="h">${m === "hybrid" ? "hibrit" : m}</div>`).join("")}
+        <div class="h">dosya</div>${M.map(([m]) => `<div class="v ${rankCls(g.methods[m].file_rank)}">${rk(g.methods[m].file_rank)}</div>`).join("")}
+        <div class="h">parça</div>${M.map(([m]) => `<div class="v ${rankCls(g.methods[m].chunk_rank)}">${rk(g.methods[m].chunk_rank)}</div>`).join("")}</div>`
+    : `<p class="exp">En yüksek kosinüs skoru <span class="mono">${g.max_score.toFixed(3)}</span>. Bir eşik bu soruyu ayırabilir mi? Bölüm 5.</p>`;
+  return `<article class="card">
+    <div class="top"><span class="label mono">S${String(g.n).padStart(2, "0")}</span>${kindChip(g)}</div>
+    <p class="q">${esc(g.question)}</p>
+    <p class="lesson">${esc(g.lesson)}</p>
+    <p class="exp">${exp}</p>
+    ${ranks}
+    ${g.answer ? `<p class="answer">${esc(g.answer)}</p>` : ""}
+    <a class="open" href="${g.trace}">İz sayfasını aç →</a>
+  </article>`;
+}).join("");
+
+// eşik şeridi
+const S = D.scores, W = 640, X0 = 0.50, X1 = 0.73, padL = 92, padR = 16;
+const X = v => padL + (v - X0) / (X1 - X0) * (W - padL - padR);
+const rows = [["gerçek", S.filter(s => s.kind !== "trap"), 48], ["tuzak", S.filter(s => s.kind === "trap"), 96]];
+const ns = "http://www.w3.org/2000/svg";
+const el = (t, a, p) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); p.appendChild(e); return e; };
+const svgEl = $("strip");
+for (let v = 0.50; v <= 0.7301; v += 0.05) {
+  el("line", { x1: X(v), x2: X(v), y1: 20, y2: 118, style: "stroke:var(--rule)" }, svgEl);
+  el("text", { x: X(v), y: 138, "text-anchor": "middle", style: "fill:var(--muted);font:11px var(--mono)" }, svgEl).textContent = v.toFixed(2);
+}
+rows.forEach(([name, list, y]) => {
+  el("text", { x: 0, y: y + 4, style: "fill:var(--ink2);font:600 12px var(--body)" }, svgEl).textContent = `${name} (${list.length})`;
+  list.forEach((s, i) => {
+    const c = el("circle", { cx: X(s.max_score), cy: y + ((i * 7) % 17) - 8, r: 4.5,
+      style: `fill:${name === "tuzak" ? "var(--accent)" : "var(--ink2)"};fill-opacity:.75` }, svgEl);
+    el("title", {}, c).textContent = `${s.question}\n${s.max_score.toFixed(3)} → ${short(s.top_file)}`;
+  });
+});
+const cut = el("line", { y1: 14, y2: 122, style: "stroke:var(--accent);stroke-width:2;stroke-dasharray:4 3" }, svgEl);
+function update() {
+  const t = +$("cut").value;
+  cut.setAttribute("x1", X(t)); cut.setAttribute("x2", X(t));
+  const real = S.filter(s => s.kind !== "trap"), traps = S.filter(s => s.kind === "trap");
+  const caught = traps.filter(s => s.max_score < t).length, lost = real.filter(s => s.max_score < t).length;
+  $("readout").innerHTML = `Eşik <b>${t.toFixed(3)}</b>: tuzakların <b>${caught} / ${traps.length}</b>'i "bulamadım" olur, ama gerçek soruların <b>${lost} / ${real.length}</b>'i de cevapsız kalır.`;
+}
+$("cut").addEventListener("input", update); update();
+
+$("refs").innerHTML = D.reports.map(r => `<li><a href="${esc(r.report_url)}">${esc(r.incident)}</a> <span class="muted">${esc(r.agency)}, ${esc(r.report_id || "")}</span></li>`).join("");
+$("foot").textContent = `Embedding ${D.corpus.embed_model}, parça ${D.corpus.chunk_tokens} token. Sorular ve beklenen sayfalar data/aci/eval-hand.jsonl.`;
+</script>

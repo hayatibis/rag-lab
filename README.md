@@ -67,6 +67,35 @@ Tek dosyalık, çevrimdışı çalışan bir HTML üretir. Tarayıcıda açılı
 - **Prompt:** Metnin bileşimi, talimat ve parçaların tam hâli.
 - **Claude:** Token sayıları; cevaptaki `[n]` atıflarının üzerine gelince ilgili parça vurgulanır.
 
+## Uçak kazası raporları (`corpora/aci/`)
+
+İkinci korpus: [hayatibis.dev'deki Air Crash Investigation indeksinden](https://hayatibis.dev/writing/air-crash-investigation-index)
+seçilmiş 25 resmî kaza raporu (NTSB, BEA, AAIB, TSB, KNKT). Raporlar repoda değil; `fetch.py`
+kaynağından indirir, `data/aci/` altına koyar (gitignore'da).
+
+```bash
+brew install ocrmypdf                                   # taranmış sayfalar için OCR
+uv run python corpora/aci/fetch.py                      # indir → OCR → soru seti → istatistik
+
+# aynı raporlardan iki indeks: OCR'sız ve OCR'lı
+RAG_SOURCE=data/aci/pdf RAG_DATA=data/aci/index-raw uv run python index.py
+RAG_SOURCE=data/aci/ocr RAG_DATA=data/aci/index-ocr uv run python index.py
+
+# aynı sorularla üç arama: dense (kosinüs), BM25, hibrit (RRF); dosya ve parça seviyesinde
+RAG_DATA=data/aci/index-ocr RAG_EVAL=data/aci/eval.jsonl uv run python corpora/aci/compare.py
+
+# yayınlanabilir, önceden hesaplanmış demo → data/aci/demo/index.html + traces/
+RAG_DATA=data/aci/index-ocr uv run --env-file .env python corpora/aci/demo.py
+```
+
+- `manifest.json`: seçilen raporlar, resmî rapor linkleri ve indeksteki kısa neden özeti.
+- `fetch.py`: `ocrmypdf --skip-text` yalnız metni olmayan sayfaları okur; `stats.tsv` rapor başına
+  OCR'sız ve OCR'lı karakter sayısını yazar.
+- `eval.jsonl` otomatik üretilir (rapor başına adıyla ve nedeniyle iki soru + tuzaklar). Daha sıkı
+  ölçüm için elle yazılmış, beklenen sayfa ve ifadeyle bir set (`RAG_EVAL=… compare.py`) kullanılır;
+  parça seviyesi, ilk k parçadan birinin doğru rapordan gelip beklenen ifadeyi içermesidir.
+- `compare.py` içindeki BM25 ve RRF kütüphanesiz, elle yazılmıştır.
+
 ## Öğrenilenler
 
 1. **Veri hazırlığı sessizce bozulur.** HTML tablosunda `#` sütunu `# | Madde | …` satırı
