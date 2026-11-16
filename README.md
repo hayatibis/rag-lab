@@ -95,6 +95,31 @@ RAG_DATA=data/aci/index-ocr uv run --env-file .env python corpora/aci/demo.py
   ölçüm için elle yazılmış, beklenen sayfa ve ifadeyle bir set (`RAG_EVAL=… compare.py`) kullanılır;
   parça seviyesi, ilk k parçadan birinin doğru rapordan gelip beklenen ifadeyi içermesidir.
 - `compare.py` içindeki BM25 ve RRF kütüphanesiz, elle yazılmıştır.
+- `eval-hand.jsonl`: elle yazılmış 59 soru (46 ayrıntı, 5 Türkçe, 8 tuzak), beklenen sayfa ve ifadeyle.
+  `RAG_EVAL=corpora/aci/eval-hand.jsonl` ile `compare.py`'ye verilir; `demo.py` doğrudan okur.
+- Yayındaki demo: https://rag-lab.hayatibis.dev (Vercel, `site/` klasörü; `vercel.json` build'i kapatır).
+  `demo.py --site` klasörü yeniden üretir; push edilince Vercel yayınlar.
+
+### Yeni bir makinede kaldığın yerden
+
+`data/` git'te olmadığı için PDF'ler, OCR ve indeks yeniden üretilir (OCR ~10 dk, embed ~15 dk):
+
+```bash
+uv sync && brew install ocrmypdf ollama && ollama serve   # ayrı terminalde
+ollama pull bge-m3
+uv run python corpora/aci/fetch.py
+RAG_SOURCE=data/aci/ocr RAG_DATA=data/aci/index-ocr uv run python index.py
+echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env               # git'e girmez
+RAG_DATA=data/aci/index-ocr uv run --env-file .env python corpora/aci/demo.py --site
+grep -rl "sk-ant" site/ && echo "DUR: site/ içinde anahtar var" || echo "temiz"
+```
+
+### Yapılacaklar
+
+- [ ] Hayati `eval-hand.jsonl`'daki 59 soruyu okusun (gerçekten sorulur mu?); değişenlerle `compare.py`'yi yeniden çalıştır, sayıları yazıya taşı.
+- [ ] Claude cevaplı demoyu üret (`.env`, yukarıdaki komut), `site/`'ta anahtar araması temizse commit + push.
+- [ ] Demo sayfasının İngilizcesi (yazı iki dilde, demo şimdilik yalnız Türkçe).
+- [ ] Hibrit arama ve parça seviyesi ölçüt `rag/` içine alınsın mı? Şimdilik yalnız `corpora/aci/compare.py`'de.
 
 ## Öğrenilenler
 

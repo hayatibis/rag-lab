@@ -30,7 +30,7 @@ from rag.jsonl import read_jsonl  # noqa: E402
 from rag.search import Index  # noqa: E402
 
 OUT = PROJECT_ROOT / "data" / "aci" / "demo"
-EVAL_HAND = PROJECT_ROOT / "data" / "aci" / "eval-hand.jsonl"
+EVAL_HAND = HERE / "eval-hand.jsonl"
 STATS = PROJECT_ROOT / "data" / "aci" / "stats.tsv"
 
 # Galeride gösterilecek sorular: her biri bir dersi taşır.
