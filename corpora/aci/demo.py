@@ -87,6 +87,8 @@ def read_stats() -> list[dict]:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Uçak kazası demo sayfaları")
     p.add_argument("--retrieve-only", action="store_true", help="Claude'u çağırma")
+    p.add_argument("--site", action="store_true",
+                   help="yayınlanacak kopyayı repodaki site/ klasörüne de yaz (Vercel buradan yayınlar)")
     args = p.parse_args(argv)
 
     manifest = {r["id"]: r for r in json.loads((HERE / "manifest.json").read_text(encoding="utf-8"))}
@@ -166,6 +168,17 @@ def main(argv: list[str] | None = None) -> int:
     page = (HERE / "demo_template.html").read_text(encoding="utf-8").replace("/*__DEMO__*/null", blob)
     (OUT / "index.html").write_text(page, encoding="utf-8")
     print(f"→ {OUT / 'index.html'}")
+
+    if args.site:
+        site = PROJECT_ROOT / "site"
+        (site / "traces").mkdir(parents=True, exist_ok=True)
+        # şablon gövdeden başlar (Artifact kendi iskeletini ekler); tek başına yayında iskelet gerekir
+        head = ('<!doctype html>\n<html lang="tr">\n<meta charset="utf-8">\n'
+                '<meta name="viewport" content="width=device-width, initial-scale=1">\n')
+        (site / "index.html").write_text(head + page, encoding="utf-8")
+        for f in sorted((OUT / "traces").glob("q*.html")):
+            (site / "traces" / f.name).write_text(f.read_text(encoding="utf-8"), encoding="utf-8")
+        print(f"→ {site}")
     return 0
 
 
